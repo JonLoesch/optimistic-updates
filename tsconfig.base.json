@@ -19,6 +19,11 @@
 
     /* Experimental Options */
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": false
+    "emitDecoratorMetadata": false,
+
+    /* Uncategorized options */
+    "verbatimModuleSyntax": true,
+    "importsNotUsedAsValues": "remove",
+    "module": "ES2022"
   }
 }
