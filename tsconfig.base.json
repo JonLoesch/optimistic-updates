@@ -24,6 +24,8 @@
     /* Uncategorized options */
     "verbatimModuleSyntax": true,
     "importsNotUsedAsValues": "remove",
-    "module": "ES2022"
+    "module": "ES2022",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   }
 }

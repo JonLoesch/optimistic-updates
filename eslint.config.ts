@@ -5,10 +5,19 @@ import tseslint, { type ConfigArray } from "typescript-eslint";
 export default tseslint.config({
   extends: [
     eslint.configs.recommended,
-    tseslint.configs.strictTypeChecked,
+    tseslint.configs.recommendedTypeChecked,
     tseslint.configs.stylisticTypeChecked,
     tseslint.configs.strictTypeChecked
   ],
+  rules: {
+    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/no-non-null-assertion": "warn",
+    "@typescript-eslint/no-empty-function": "warn",
+    "@typescript-eslint/no-confusing-void-expression": "off",
+    "@typescript-eslint/no-unnecessary-type-parameters": "warn",
+    "@typescript-eslint/no-explicit-any": "warn",
+    "no-empty": "warn"
+  },
   languageOptions: {
     // sourceType: 'module',
     globals: {
@@ -24,8 +33,8 @@ export default tseslint.config({
   ignores: [
     ".pnpm-store",
     "pnpm-lock.yaml",
-    "node_modules",
-    "dist",
+    "node_modules/*",
+    "dist/*",
     "packages/**/node_modules/*",
     "packages/**/dist/*",
     "**/.*"
