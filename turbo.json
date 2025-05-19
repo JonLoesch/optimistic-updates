@@ -33,12 +33,13 @@
       "dependsOn": ["build"]
     },
     "typecheck": {
+      "dependsOn": ["^build"],
       "outputs": ["tsconfig.tsbuildinfo"]
     }
   },
+  "ui": "tui",
   "globalDependencies": [
-    ".eslintrc.js",
-    ".eslintignore",
+    ".eslint.config.js",
     ".lintstagedrc.js",
     ".prettierrc.yaml",
     "tsconfig.base.json",

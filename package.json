@@ -1,22 +1,17 @@
 {
-  "name": "modern-monorepo-example",
+  "name": "optimistic-updates",
   "type": "module",
   "version": "0.0.0-development",
-  "description": "An example of a modern Monorepo",
-  "author": "Luke Baker <luke.baker@live.com>",
-  "license": "MIT",
+  "description": "A proof of concept of a frontend optimistic update library",
+  "author": "Jonathan Loesch <jonloesch@gmail.com>",
   "keywords": [
-    "NPM",
     "package",
     "monorepo",
     "typescript"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/bakeruk/modern-monorepo-example.git"
-  },
-  "publishConfig": {
-    "access": "public"
+    "url": "https://github.com/JonLoesch/optimistic-updates"
   },
   "engines": {
     "node": ">=18",
@@ -27,7 +22,7 @@
   "scripts": {
     "build": "turbo run build",
     "build:clean": "turbo run clean:build",
-    "dev": "turbo run dev",
+    "dev": "turbo watch typecheck build",
     "lint-format": "turbo run --parallel lint format ",
     "lint-format:fix": "turbo run --parallel lint:fix format:fix",
     "lint": "eslint",
@@ -53,7 +48,6 @@
     "jest": "^29.7.0",
     "jiti": "^2.4.2",
     "lint-staged": "^16.0.0",
-    "nodemon": "^3.1.10",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
     "turbo": "^2.5.3",

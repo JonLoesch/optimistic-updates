@@ -7,7 +7,6 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "clean:build": "rimraf ./dist",
-    "dev": "nodemon",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "format": "prettier --check .",
