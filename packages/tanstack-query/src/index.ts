@@ -15,7 +15,7 @@ import {
 } from "@tanstack/query-core";
 import { partialMatchKey } from "./partialMatchKey";
 
-function optimisticTanstackQuery(queryClient: QueryClient) {
+export function optimisticTanstackQuery(queryClient: QueryClient) {
   const base = abstractModel<
     QueryKey,
     QueryKey,
@@ -35,16 +35,26 @@ function optimisticTanstackQuery(queryClient: QueryClient) {
   queryClient.getMutationCache().subscribe((event) => {
     if (event.type === "updated") {
       base.onMutation(event.mutation);
-      const toRefresh = new Map<string, Query>();
-      for (const queryKey of base.whichQueriesToUpdate(event.mutation)) {
-        for (const query of queryClient.getQueryCache().findAll({ queryKey })) {
-          toRefresh.set(query.queryHash, query);
+      const queryKeys = [...base.whichQueriesToUpdate(event.mutation)];
+      console.log({ queryKeys });
+
+      const predicate = (q: Query<unknown, Error, unknown>): boolean => {
+        console.log({ q });
+        return queryKeys.some((queryKey) => matchQuery({ queryKey }, q));
+      };
+
+      if (event.mutation.state.status !== "success") {
+        for (const query of queryClient.getQueryCache().findAll({
+          predicate
+        })) {
+          console.log({ query });
+          queryClient.setQueryData(query.queryKey, (data: unknown) =>
+            base.wrapValue(data, query.queryKey, true)
+          );
         }
-      }
-      for (const query of toRefresh.values()) {
-        queryClient.setQueryData(query.queryKey, (data: unknown) =>
-          base.wrapValue(data, query.queryKey, true)
-        );
+      } else {
+        console.log("invalidate", event);
+        void queryClient.invalidateQueries({ predicate });
       }
     }
   });

@@ -54,25 +54,29 @@ export function abstractModel<
   const activeMutations = new Map<number, M>();
 
   mutationWatchers.addLayer({
-    createHandler: (m, lifecycle) => {
+    createItem: (m, lifecycle) => {
       const index = autoInc++;
       activeMutations.set(index, m);
       return {
-        mutationUpdate: (m) => {
-          if (impl.isMutationActive(m)) {
-            activeMutations.set(index, m);
-          } else {
-            lifecycle.cleanupHandler();
+        item: {
+          mutationUpdate: (m) => {
+            if (impl.isMutationActive(m)) {
+              activeMutations.set(index, m);
+            } else {
+              lifecycle.cleanupItem();
+            }
           }
         },
-        onCleanupHandler: () => activeMutations.delete(index)
+        onCleanupItem: () => activeMutations.delete(index)
       };
     }
   });
 
   return {
-    whichQueriesToUpdate(m: M) {
-      return refreshMap.active(impl.hashMutation(m), m);
+    *whichQueriesToUpdate(m: M) {
+      for (const x of refreshMap.current(impl.hashMutation(m), m)) {
+        yield x.item;
+      }
     },
     add: (
       queryPredicate: QL,
@@ -84,7 +88,7 @@ export function abstractModel<
       ) => Data | typeof stopInjection
     ) => {
       queryInjections.addLayer({
-        createHandler: (q) => {
+        createItem: (q) => {
           if (impl.matchQuery(queryPredicate, q)) {
             let mutationState = latestActiveMutationState();
             function latestActiveMutationState(): Record<
@@ -106,7 +110,7 @@ export function abstractModel<
             let watch = newMutationWatcher();
             function newMutationWatcher() {
               return mutationWatchers.addLayer({
-                createHandler: (m) => {
+                createItem: (m) => {
                   for (const [name, pred] of Object.entries(
                     mutationPredicates
                   )) {
@@ -114,10 +118,12 @@ export function abstractModel<
                       const index = autoInc++;
                       mutationState[name]!.set(index, m);
                       return {
-                        mutationUpdate: (m) => {
-                          mutationState[name]!.set(index, m);
+                        item: {
+                          mutationUpdate: (m) => {
+                            mutationState[name]!.set(index, m);
+                          }
                         },
-                        onCleanupHandler: () => {}
+                        onCleanupItem: () => {}
                       };
                     }
                   }
@@ -127,26 +133,41 @@ export function abstractModel<
             }
 
             return {
-              transform: handleStopInjection(
-                (data) =>
-                  processor(
-                    data,
-                    Object.fromEntries(
-                      Object.entries(mutationState).map(([name, m]) => [
-                        name,
-                        [...m.values()]
-                      ])
+              item: {
+                transform: handleStopInjection(
+                  (data) =>
+                    processor(
+                      data,
+                      Object.fromEntries(
+                        Object.entries(mutationState).map(([name, m]) => [
+                          name,
+                          [...m.values()]
+                        ])
+                      ),
+                      q
                     ),
-                    q
-                  ),
-                () => {
-                  watch.unsubscribe();
-                  watch = newMutationWatcher();
-                  mutationState = latestActiveMutationState();
-                }
-              ),
-              onCleanupHandler: () => watch.unsubscribe()
+                  () => {
+                    watch.unsubscribe();
+                    watch = newMutationWatcher();
+                    mutationState = latestActiveMutationState();
+                  }
+                )
+              },
+              onCleanupItem: () => watch.unsubscribe()
             };
+          } else {
+            return noMatch;
+          }
+        }
+      });
+      refreshMap.addLayer({
+        createItem: (mutation) => {
+          if (
+            Object.values(mutationPredicates).some((l) =>
+              impl.matchMutation(l, mutation)
+            )
+          ) {
+            return { item: queryPredicate, onCleanupItem: () => {} };
           } else {
             return noMatch;
           }
@@ -162,11 +183,11 @@ export function abstractModel<
       const queryHash = impl.hashQuery(query);
       let isAltered = false;
       let value =
-        (useUnalteredValueIfPresent && unalteredValues.get(queryHash)) ??
+        (useUnalteredValueIfPresent ? unalteredValues.get(queryHash) : null) ??
         unaltered;
 
-      for (const handler of queryInjections.active(queryHash, query)) {
-        const newValue = handler.transform(value);
+      for (const handler of queryInjections.current(queryHash, query)) {
+        const newValue = handler.item.transform(value);
         if (newValue !== value) {
           isAltered = true;
         }
@@ -182,13 +203,13 @@ export function abstractModel<
       return value;
     },
     onMutation: (m: M) => {
-      for (const handler of mutationWatchers.active(impl.hashMutation(m), m)) {
-        handler.mutationUpdate(m);
+      for (const watcher of mutationWatchers.current(impl.hashMutation(m), m)) {
+        watcher.item.mutationUpdate(m);
       }
     },
     onQueryCacheExpired: (q: Q) => {
-      for (const handler of queryInjections.active(impl.hashQuery(q), q)) {
-        handler.cleanupHandler();
+      for (const injection of queryInjections.current(impl.hashQuery(q), q)) {
+        injection.cleanupItem();
       }
     }
   };

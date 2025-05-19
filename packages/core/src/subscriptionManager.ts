@@ -1,62 +1,52 @@
 import { getOrCreate } from "./getOrCreate";
 
 export const noMatch = Symbol("noMatch");
+function isNoMatch(x: any): x is typeof noMatch {
+  return x === noMatch;
+}
 
-type WithCleanup<Handler> = Handler & {
-  onCleanupHandler: () => void;
-};
-interface DynamicLayerParameters<Trigger, Handler> {
-  createHandler: (
+interface DynamicLayerParameters<Trigger, Item> {
+  createItem: (
     trigger: Trigger,
     lifecycle: {
-      cleanupHandler: () => void;
+      cleanupItem: () => void;
     }
-  ) =>
-    | (Handler & {
-        onCleanupHandler: () => void;
-      })
-    | typeof noMatch;
+  ) => { item: Item; onCleanupItem: () => void } | typeof noMatch;
 }
-interface DynamicLayer<Key, Trigger, Handler> {
-  createHandler: (
+interface DynamicLayer<Key, Trigger, Item> {
+  createItem: (
     key: Key,
     trigger: Trigger
   ) =>
-    | (Handler & {
-        onCleanupHandler: () => void;
-        cleanupHandler: () => void;
-      })
+    | {
+        item: Item;
+        onCleanupItem: () => void;
+        cleanupItem: () => void;
+      }
     | typeof noMatch;
 }
 
-export class SubscriptionManager<Key extends PropertyKey, Trigger, Handler> {
+export class SubscriptionManager<Key extends PropertyKey, Trigger, Item> {
   #inc = 0;
-  #all: DynamicLayer<Key, Trigger, Handler>[] = [];
-  addLayer(layer: DynamicLayerParameters<Trigger, Handler>) {
+  #all: DynamicLayer<Key, Trigger, Item>[] = [];
+  addLayer(layer: DynamicLayerParameters<Trigger, Item>) {
     const index = this.#inc++;
-    const handlers = new Map<
-      Key,
-      Exclude<ReturnType<typeof layer.createHandler>, typeof noMatch>
-    >();
+    const handlers = new Map<Key, ReturnType<typeof layer.createItem>>();
     this.#all[index] = {
-      ...layer,
-      createHandler(key, trigger) {
-        const handler = getOrCreate(
-          handlers,
-          key,
-          () =>
-            layer.createHandler(trigger, {
-              cleanupHandler
-            }),
-          (x) => x === noMatch
+      createItem(key, trigger) {
+        const data = getOrCreate(handlers, key, () =>
+          layer.createItem(trigger, {
+            cleanupItem: cleanupHandler
+          })
         );
-        if (handler === noMatch) return noMatch;
+        if (data === noMatch) return noMatch;
         return {
-          ...handler,
-          cleanupHandler
+          item: data.item,
+          onCleanupItem: data.onCleanupItem,
+          cleanupItem: cleanupHandler
         };
         function cleanupHandler() {
-          if (handler !== noMatch) handler.onCleanupHandler();
+          if (data !== noMatch) data.onCleanupItem();
           handlers.delete(key);
         }
       }
@@ -65,7 +55,8 @@ export class SubscriptionManager<Key extends PropertyKey, Trigger, Handler> {
       unsubscribe: () => {
         // layer.onUnsubscribe?.();
         for (const h of handlers.values()) {
-          h.onCleanupHandler();
+          if (h === noMatch) continue;
+          h.onCleanupItem();
         }
         this.#all.splice(index, 1);
       }
@@ -100,13 +91,9 @@ export class SubscriptionManager<Key extends PropertyKey, Trigger, Handler> {
   //     }
   //   }
   // }
-  active(key: Key, trigger: Trigger) {
-    // return this.deferCleanupTillEnd(() => this.#active(key, trigger));
-    return this.#active(key, trigger);
-  }
-  *#active(key: Key, trigger: Trigger) {
+  *current(key: Key, trigger: Trigger) {
     for (const layer of this.#all.values()) {
-      const handler = layer.createHandler(key, trigger);
+      const handler = layer.createItem(key, trigger);
       if (handler === noMatch) continue;
       yield handler as Omit<typeof handler, "onCleanupHandler">;
     }
