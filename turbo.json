@@ -24,7 +24,9 @@
       "cache": false,
       "persistent": true
     },
-    "lint": {},
+    "lint": {
+      "inputs": ["**/*.ts", "**/*.ts", "!dist/*", "!node_modules/*"]
+    },
     "lint:fix": {},
     "format": {},
     "format:fix": {},
@@ -38,7 +40,7 @@
   },
   "ui": "tui",
   "globalDependencies": [
-    ".eslint.config.js",
+    "eslint.config.ts",
     ".lintstagedrc.js",
     ".prettierrc.yaml",
     "tsconfig.base.json",

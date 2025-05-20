@@ -4,9 +4,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "vite preview",
     "build": "tsc && vite build",
-    "lint": "eslint --cache src",
-    "start": "vite preview"
+    "clean:build": "rimraf ./dist",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "test": "jest",
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@optimistic-updates/react-query": "workspace:^",

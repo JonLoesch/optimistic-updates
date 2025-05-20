@@ -6,7 +6,7 @@ import {
   useQuery,
   useQueryClient
 } from "@tanstack/react-query";
-import { queryClient, trpc, wrapOptions } from "./utils/trpc";
+import { queryClient, trpc } from "./utils/trpc";
 import { useEffect, useReducer, useState } from "react";
 import { TRPCQueryKey } from "@trpc/tanstack-react-query";
 
@@ -19,11 +19,8 @@ export function App() {
   );
 }
 
-let opts = trpc.threads.all.queryOptions();
-opts = (wrapOptions as any)(opts);
-
 function AllThreads() {
-  const threads = useQuery(opts);
+  const threads = useQuery(trpc.threads.all.queryOptions());
   return (
     <>
       <div>

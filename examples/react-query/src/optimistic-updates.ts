@@ -1,43 +1,59 @@
-import { QueryClient } from "@tanstack/react-query";
-import { AppRouter } from "../../server";
+import { DefaultError, QueryClient } from "@tanstack/react-query";
 import {
-  optimisticTRPCClient,
+  OptimisticUpdateTanstackQueryModel,
   stopInjection
-} from "./tanstack-query-optimistic";
-import { optimisticTanstackQuery } from "@optimistic-updates/tanstack-query";
-import { TRPCClient } from "@trpc/client";
-import { TRPCOptionsProxy } from "@trpc/tanstack-react-query";
+} from "@optimistic-updates/tanstack-query";
+import { trpc } from "./utils/trpc";
 
-export function optimisticUpdatesViaTanstackDecoration(
-  baseClient: QueryClient,
-  trpc: TRPCOptionsProxy<AppRouter>
+export function addOptimisticUpdates(
+  model: OptimisticUpdateTanstackQueryModel
 ) {
-  const opt = optimisticTanstackQuery(baseClient);
-  opt.add(
-    trpc.threads.all.queryKey(),
-    {
-      additions: { mutationKey: trpc.threads.create.mutationKey() },
-      deletions: { mutationKey: trpc.threads.delete.mutationKey() }
-    },
-    (value, mutations) => {
-      console.log(value, { mutations });
-      return value;
+  let autoDec = -1;
+  const m = {
+    additions: model.watchMutation<
+      { id: number },
+      DefaultError,
+      { title: string },
+      { id: number }
+    >(
+      {
+        mutationKey: trpc.threads.create.mutationKey()
+      },
+      (m) => ({ id: autoDec-- })
+    ),
+    deletions: model.watchMutation<undefined, DefaultError, { id: number }>({
+      mutationKey: trpc.threads.delete.mutationKey()
+    })
+  };
+  model.postprocessQuery<typeof m, { id: number; title: string }[]>(
+    { queryKey: trpc.threads.all.queryKey() },
+    m,
+    (value, mutationState) => {
+      console.log("optimistic", value, mutationState);
+      if (
+        mutationState.additions.every(
+          (m) => m.status === "success" && value.find((x) => x.id === m.data.id)
+        ) &&
+        mutationState.deletions.every(
+          // TODO fix this non-null assertion
+          (m) => !value.find((x) => x.id === m.variables!.id)
+        )
+      ) {
+        return stopInjection;
+      }
+      return [
+        ...value,
+        ...mutationState.additions.map((m) => ({
+          // TODO fix this non-null assertion
+          ...m.variables!,
+          id: m.id
+        }))
+      ].filter(
+        // TODO fix this non-null assertion
+        (x) => !mutationState.deletions.some((d) => d.variables!.id === x.id)
+      );
     }
   );
-  opt.add(
-    trpc.posts.allInThread.queryKey(),
-    {
-      additions: { mutationKey: trpc.posts.create.mutationKey() },
-      deletions: { mutationKey: trpc.posts.delete.mutationKey() }
-    },
-    (value, mutations) => {
-      return value;
-    }
-  );
-
-  return opt.wrapOptions;
-
-  // return optimisticTRPCClient<AppRouter>((builder, trpc) => {
   //   let autoDec = -1;
   //   builder.optimisticArrayInsert(
   //     {
