@@ -16,7 +16,11 @@ export default tseslint.config({
     "@typescript-eslint/no-confusing-void-expression": "off",
     "@typescript-eslint/no-unnecessary-type-parameters": "warn",
     "@typescript-eslint/no-explicit-any": "warn",
-    "no-empty": "warn"
+    "prefer-const": "warn",
+    "no-empty": "warn",
+    "@typescript-eslint/array-type": "warn",
+    "@typescript-eslint/consistent-type-definitions": "warn",
+    "@typescript-eslint/no-empty-object-type": "warn"
   },
   languageOptions: {
     // sourceType: 'module',

@@ -13,7 +13,7 @@ const t = initTRPC.create();
  * Middleware for adding an artificial delay.  (3s-5s)
  */
 const timingMiddleware = t.middleware(async ({ next, path }) => {
-  const waitMs = Math.floor(Math.random() * 200) + 300;
+  const waitMs = Math.floor(Math.random() * 2000) + 3000;
   await new Promise((resolve) => setTimeout(resolve, waitMs));
   return await next();
 });
@@ -95,7 +95,6 @@ createHTTPServer({
   middleware: cors(),
   router: appRouter,
   createContext() {
-    console.log("context 3");
     return {};
   }
 }).listen(3033);

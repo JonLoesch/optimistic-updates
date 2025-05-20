@@ -2,8 +2,8 @@
   "name": "@optimistic-updates/tanstack-query",
   "version": "0.0.0",
   "description": "",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/tanstack-query.js",
+  "types": "dist/tanstack-query.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "clean:build": "rimraf ./dist",

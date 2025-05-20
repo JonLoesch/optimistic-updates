@@ -1,14 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-type-parameters */
-
 import { getOrCreate } from "./getOrCreate";
 import { noMatch, SubscriptionManager } from "./subscriptionManager";
 
 export const stopInjection = Symbol("stopInjection");
 
-function handleStopInjection(
-  transform: <T>(data: T) => T | typeof stopInjection,
+function handleStopInjection<T>(
+  transform: (data: T) => T | typeof stopInjection,
   onStopInjection: () => void
-): <T>(data: T) => T {
+): (data: T) => T {
   return (data) => {
     const transformed = transform(data);
     if (transformed === stopInjection) {
@@ -20,197 +18,237 @@ function handleStopInjection(
   };
 }
 
-export function abstractModel<
-  Q,
-  QL,
-  QH extends PropertyKey,
-  M,
-  ML,
-  MH extends PropertyKey
->(impl: {
-  isMutationActive: (m: M) => boolean;
-  hashQuery: (q: Q) => QH;
-  hashMutation: (m: M) => MH;
-  matchQuery: (ql: QL, q: Q) => boolean;
-  matchMutation: (ml: ML, m: M) => boolean;
-}) {
+type OptimisticUpdateGenericParameters = {
+  Query: any;
+  QueryLocator: any;
+  QueryHash: PropertyKey;
+  Mutation: any;
+  MutationLocator: any;
+  MutationHash: PropertyKey;
+};
+
+type Implementation<G extends OptimisticUpdateGenericParameters> = {
+  isMutationErrored: (m: G["Mutation"]) => boolean;
+  isMutationSuccessful: (m: G["Mutation"]) => boolean;
+  hashQuery: (q: G["Query"]) => G["QueryHash"];
+  hashMutation: (m: G["Mutation"]) => G["MutationHash"];
+  matchQuery: (ql: G["QueryLocator"], q: G["Query"]) => boolean;
+  matchMutation: (ml: G["MutationLocator"], m: G["Mutation"]) => boolean;
+  updateCache: (
+    qls: G["QueryLocator"][],
+    updater: <T>(data: T, qh: G["QueryHash"]) => T
+  ) => void;
+  triggerRefetch: (qls: G["QueryLocator"][]) => void;
+};
+
+type MutationState<Data, TExtraInitData> = Data & TExtraInitData;
+export type MutationWatch<
+  G extends OptimisticUpdateGenericParameters,
+  Data,
+  TExtraInitData
+> = {
+  ml: G["MutationLocator"];
+  current: Iterable<MutationState<Data, TExtraInitData>>;
+  clearCache: () => void;
+};
+
+export type MutationWatchGroup<G extends OptimisticUpdateGenericParameters> =
+  Record<string, MutationWatch<G, any, any>>;
+
+export type CurrentMutationState<
+  G extends OptimisticUpdateGenericParameters,
+  Group extends MutationWatchGroup<G>
+> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [K in keyof Group]: Group[K] extends MutationWatch<G, any, any>
+    ? Group[K]["current"] extends Iterable<infer T>
+      ? T[]
+      : never
+    : never;
+};
+
+export function createAbstractOptimisticModel<
+  G extends OptimisticUpdateGenericParameters
+>(impl: Implementation<G>) {
   const queryInjections = new SubscriptionManager<
-    QH,
-    Q,
+    G["QueryHash"],
+    G["Query"],
     {
       transform: <T>(data: T) => T;
     }
   >();
   const mutationWatchers = new SubscriptionManager<
-    MH,
-    M,
+    G["MutationHash"],
+    G["Mutation"],
     {
-      mutationUpdate: (value: M) => void;
+      mutationUpdate: (value: G["Mutation"]) => void;
     }
   >();
-  const refreshMap = new SubscriptionManager<MH, M, QL>();
-  const unalteredValues = new Map<QH, unknown>();
+  const refreshMap = new SubscriptionManager<
+    G["MutationHash"],
+    G["Mutation"],
+    G["QueryLocator"]
+  >();
+  const unalteredValues = new Map<G["QueryHash"], unknown>();
   let autoInc = 0;
-  const activeMutations = new Map<number, M>();
 
-  mutationWatchers.addLayer({
-    createItem: (m, lifecycle) => {
-      const index = autoInc++;
-      activeMutations.set(index, m);
-      return {
-        item: {
-          mutationUpdate: (m) => {
-            if (impl.isMutationActive(m)) {
-              activeMutations.set(index, m);
-            } else {
-              lifecycle.cleanupItem();
+  function watchMutation<Data, TExtraInitData>(
+    ml: G["MutationLocator"],
+    init: (m: G["Mutation"]) => TExtraInitData,
+    data: (m: G["Mutation"]) => Data
+  ): MutationWatch<G, Data, TExtraInitData> {
+    const values = new Map<number, MutationState<Data, TExtraInitData>>();
+
+    const layer = mutationWatchers.addLayer({
+      createItem: (m, lifecycle) => {
+        if (!impl.matchMutation(ml, m)) {
+          return noMatch;
+        }
+        const index = autoInc++;
+        const context = init(m);
+        return {
+          item: {
+            mutationUpdate: (latest) => {
+              if (impl.isMutationErrored(latest)) {
+                lifecycle.cleanupItem();
+              } else {
+                values.set(index, { ...data(latest), ...context });
+              }
             }
-          }
-        },
-        onCleanupItem: () => activeMutations.delete(index)
-      };
+          },
+          onCleanupItem: () => values.delete(index)
+        };
+      }
+    });
+
+    return {
+      ml,
+      current: {
+        [Symbol.iterator]: () => values.values()
+      },
+      clearCache: layer.clearCache
+    };
+  }
+  function currentState<Group extends MutationWatchGroup<G>>(
+    mutationGroup: Group
+  ): CurrentMutationState<G, Group> {
+    const result = Object.fromEntries(
+      Object.entries(mutationGroup).map(([name, m]) => [name, [...m.current]])
+    ) as CurrentMutationState<G, Group>;
+    return result;
+  }
+  function postprocessQuery<Group extends MutationWatchGroup<G>, Data>(
+    ql: G["QueryLocator"],
+    watcherGroup: Group,
+    transform: (
+      value: Data,
+      mutationState: CurrentMutationState<G, Group>,
+      query: G["Query"]
+    ) => Data | typeof stopInjection
+  ) {
+    queryInjections.addLayer({
+      createItem: (q) => {
+        if (impl.matchQuery(ql, q)) {
+          return {
+            item: {
+              transform: handleStopInjection<Data>(
+                (data) => transform(data, currentState(watcherGroup), q),
+                () => {
+                  console.log("poostProcess stop injection");
+                  for (const w of Object.values(watcherGroup)) {
+                    w.clearCache();
+                  }
+                }
+              ) as <T>(data: T) => T
+            }
+          };
+        } else {
+          return noMatch;
+        }
+      }
+    });
+    refreshMap.addLayer({
+      createItem: (mutation) => {
+        if (
+          Object.values(watcherGroup).some((w) =>
+            impl.matchMutation(w.ml, mutation)
+          )
+        ) {
+          return { item: ql };
+        } else {
+          return noMatch;
+        }
+      }
+    });
+  }
+  function transformer<Data>(
+    unaltered: Data,
+    qh: G["QueryHash"],
+    injections: ReturnType<typeof queryInjections.get>
+  ): Data {
+    let isAltered = false;
+    let value = unaltered;
+
+    for (const handler of injections) {
+      const newValue = handler.item.transform(value);
+      if (newValue !== value) {
+        isAltered = true;
+      }
+      value = newValue;
     }
-  });
+
+    if (isAltered) {
+      unalteredValues.set(qh, unaltered);
+    } else {
+      unalteredValues.delete(qh);
+    }
+
+    return value;
+  }
+
+  function wrapValue<Data>(unaltered: Data, query: G["Query"]) {
+    const queryHash = impl.hashQuery(query);
+    const newLocal = queryInjections.getOrCreate(queryHash, query);
+    return transformer(unaltered, queryHash, newLocal);
+  }
+  function onMutation(m: G["Mutation"]) {
+    for (const watcher of mutationWatchers.getOrCreate(
+      impl.hashMutation(m),
+      m
+    )) {
+      watcher.item.mutationUpdate(m);
+    }
+    const filters = [...refreshMap.getOrCreate(impl.hashMutation(m), m)].map(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      (x) => x.item
+    );
+    if (impl.isMutationSuccessful(m)) {
+      impl.triggerRefetch(filters);
+    } else {
+      impl.updateCache(filters, <T>(data: T, hash: G["QueryHash"]) => {
+        return transformer(
+          (unalteredValues.get(hash) as T | undefined) ?? data,
+          hash,
+          queryInjections.get(hash)
+        );
+      });
+    }
+  }
+  function onQueryCacheExpired(qh: G["QueryHash"]) {
+    for (const i of queryInjections.get(qh)) {
+      i.cleanupItem();
+    }
+  }
 
   return {
-    *whichQueriesToUpdate(m: M) {
-      for (const x of refreshMap.current(impl.hashMutation(m), m)) {
-        yield x.item;
-      }
+    model: {
+      watchMutation,
+      postprocessQuery
     },
-    add: (
-      queryPredicate: QL,
-      mutationPredicates: Record<string, ML>,
-      processor: <Data>(
-        value: Data,
-        mutations: Record<string, M[]>,
-        context: Q
-      ) => Data | typeof stopInjection
-    ) => {
-      queryInjections.addLayer({
-        createItem: (q) => {
-          if (impl.matchQuery(queryPredicate, q)) {
-            let mutationState = latestActiveMutationState();
-            function latestActiveMutationState(): Record<
-              string,
-              Map<number, M>
-            > {
-              return Object.fromEntries(
-                Object.entries(mutationPredicates).map(([name, pred]) => [
-                  name,
-                  new Map(
-                    [...activeMutations].filter(([_, m]) =>
-                      impl.matchMutation(pred, m)
-                    )
-                  )
-                ])
-              );
-            }
-
-            let watch = newMutationWatcher();
-            function newMutationWatcher() {
-              return mutationWatchers.addLayer({
-                createItem: (m) => {
-                  for (const [name, pred] of Object.entries(
-                    mutationPredicates
-                  )) {
-                    if (impl.matchMutation(pred, m)) {
-                      const index = autoInc++;
-                      mutationState[name]!.set(index, m);
-                      return {
-                        item: {
-                          mutationUpdate: (m) => {
-                            mutationState[name]!.set(index, m);
-                          }
-                        },
-                        onCleanupItem: () => {}
-                      };
-                    }
-                  }
-                  return noMatch;
-                }
-              });
-            }
-
-            return {
-              item: {
-                transform: handleStopInjection(
-                  (data) =>
-                    processor(
-                      data,
-                      Object.fromEntries(
-                        Object.entries(mutationState).map(([name, m]) => [
-                          name,
-                          [...m.values()]
-                        ])
-                      ),
-                      q
-                    ),
-                  () => {
-                    watch.unsubscribe();
-                    watch = newMutationWatcher();
-                    mutationState = latestActiveMutationState();
-                  }
-                )
-              },
-              onCleanupItem: () => watch.unsubscribe()
-            };
-          } else {
-            return noMatch;
-          }
-        }
-      });
-      refreshMap.addLayer({
-        createItem: (mutation) => {
-          if (
-            Object.values(mutationPredicates).some((l) =>
-              impl.matchMutation(l, mutation)
-            )
-          ) {
-            return { item: queryPredicate, onCleanupItem: () => {} };
-          } else {
-            return noMatch;
-          }
-        }
-      });
-    },
-
-    wrapValue: <Data>(
-      unaltered: Data,
-      query: Q,
-      useUnalteredValueIfPresent: boolean
-    ) => {
-      const queryHash = impl.hashQuery(query);
-      let isAltered = false;
-      let value =
-        (useUnalteredValueIfPresent ? unalteredValues.get(queryHash) : null) ??
-        unaltered;
-
-      for (const handler of queryInjections.current(queryHash, query)) {
-        const newValue = handler.item.transform(value);
-        if (newValue !== value) {
-          isAltered = true;
-        }
-        value = newValue;
-      }
-
-      if (isAltered) {
-        unalteredValues.set(queryHash, unaltered);
-      } else {
-        unalteredValues.delete(queryHash);
-      }
-
-      return value;
-    },
-    onMutation: (m: M) => {
-      for (const watcher of mutationWatchers.current(impl.hashMutation(m), m)) {
-        watcher.item.mutationUpdate(m);
-      }
-    },
-    onQueryCacheExpired: (q: Q) => {
-      for (const injection of queryInjections.current(impl.hashQuery(q), q)) {
-        injection.cleanupItem();
-      }
+    hooks: {
+      wrapValue,
+      onMutation,
+      onQueryCacheExpired
     }
   };
 }

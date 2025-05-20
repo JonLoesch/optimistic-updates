@@ -140,6 +140,49 @@ importers:
         specifier: ^5.8.2
         version: 5.8.3
 
+  examples/trpc:
+    dependencies:
+      '@optimistic-updates/trpc':
+        specifier: workspace:^
+        version: link:../../packages/trpc
+      '@tanstack/react-query':
+        specifier: ^5.74.7
+        version: 5.76.1(react@19.1.0)
+      '@trpc/client':
+        specifier: npm:@trpc/client
+        version: 11.1.2(@trpc/server@11.1.2(typescript@5.8.3))(typescript@5.8.3)
+      '@trpc/server':
+        specifier: npm:@trpc/server
+        version: 11.1.2(typescript@5.8.3)
+      '@trpc/tanstack-react-query':
+        specifier: npm:@trpc/tanstack-react-query
+        version: 11.1.2(@tanstack/react-query@5.76.1(react@19.1.0))(@trpc/client@11.1.2(@trpc/server@11.1.2(typescript@5.8.3))(typescript@5.8.3))(@trpc/server@11.1.2(typescript@5.8.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)
+      react:
+        specifier: ^19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.1.0(react@19.1.0)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.1.0
+        version: 19.1.4
+      '@types/react-dom':
+        specifier: ^19.1.1
+        version: 19.1.5(@types/react@19.1.4)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.4.1(vite@6.3.5(@types/node@22.15.18)(jiti@2.4.2)(tsx@4.19.4)(yaml@2.8.0))
+      eslint:
+        specifier: ^9.21.0
+        version: 9.27.0(jiti@2.4.2)
+      typescript:
+        specifier: ^5.8.2
+        version: 5.8.3
+      vite:
+        specifier: ^6.1.1
+        version: 6.3.5(@types/node@22.15.18)(jiti@2.4.2)(tsx@4.19.4)(yaml@2.8.0)
+
   packages/core: {}
 
   packages/react-query:
@@ -165,6 +208,19 @@ importers:
       '@optimistic-updates/core':
         specifier: workspace:^
         version: link:../core
+      '@trpc/client':
+        specifier: ^11.1.2
+        version: 11.1.2(@trpc/server@11.1.2(typescript@5.8.3))(typescript@5.8.3)
+      '@trpc/server':
+        specifier: ^11.1.2
+        version: 11.1.2(typescript@5.8.3)
+    devDependencies:
+      '@tanstack/query-core':
+        specifier: ^5.76.0
+        version: 5.76.0
+      '@trpc/tanstack-react-query':
+        specifier: ^11.1.2
+        version: 11.1.2(@tanstack/react-query@5.76.1(react@19.1.0))(@trpc/client@11.1.2(@trpc/server@11.1.2(typescript@5.8.3))(typescript@5.8.3))(@trpc/server@11.1.2(typescript@5.8.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)
 
 packages:
 
