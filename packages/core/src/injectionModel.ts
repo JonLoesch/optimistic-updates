@@ -1,4 +1,11 @@
-import { filter, map, Observable, startWith, type Subscribable } from "rxjs";
+import {
+  filter,
+  map,
+  Observable,
+  startWith,
+  type ObservedValueOf,
+  type Subscribable
+} from "rxjs";
 import { noMatch, SubscriptionManager } from "./subscriptionManager";
 
 export const stopInjection = Symbol("stopInjection");
@@ -30,7 +37,7 @@ type Implementation<G extends OptimisticUpdateGenericParameters> = {
   matchQuery: (ql: G["QueryLocator"], q: G["Query"]) => boolean;
   updateCache: (
     ql: G["QueryLocator"],
-    updater: <T>(data: T, qh: G["QueryHash"]) => T
+    updater: <T>(data: T, qh: G["Query"]) => T
   ) => void;
   triggerRefetch: (ql: G["QueryLocator"]) => void;
   mutations$: Observable<{
@@ -57,6 +64,9 @@ type InternalMutationState<Result> = {
 export type MutationWatch<Result> = Subscribable<
   Subscribable<InternalMutationState<Result>>
 >;
+
+export type InferWatchedType<W extends MutationWatch<any>> =
+  W extends MutationWatch<infer X> ? X : never;
 
 const noValue = Symbol("noValue");
 
@@ -94,7 +104,7 @@ export function createAbstractOptimisticModel<
       })
     );
   }
-  function postprocessQuery<Result, Data>(
+  function postprocessQuery<Data, Result = any>(
     ql: G["QueryLocator"],
     mutationWatch: MutationWatch<Result>,
     transform: (
@@ -107,31 +117,16 @@ export function createAbstractOptimisticModel<
       next(mutation$) {
         let latestValue: InternalMutationState<Result> | typeof noValue =
           noValue;
-        // TODO different token?
-        const subscription = mutation$.subscribe({
-          next(value) {
-            latestValue = value;
-
-            if (value.status === "pending") {
-              impl.triggerRefetch([ql]);
-            } else if (value.status === "success") {
-              impl.updateCache([ql], <T>(data: T, hash: G["QueryHash"]) => {
-                return transformer(
-                  (unalteredValues.get(hash) as T | undefined) ?? data,
-                  hash,
-                  queryInjections.get(hash)
-                );
-              });
-            }
-          },
-          error() {
-            layer.unsubscribe();
-
-            impl.triggerRefetch([ql]);
-          }
-        });
+        console.log("addLayer");
         const layer = queryInjections.addLayer({
           createItem: (q, lifecycle) => {
+            console.log(
+              "layer match",
+              impl.matchQuery(ql, q),
+              ql,
+              q,
+              mutationWatch
+            );
             if (impl.matchQuery(ql, q)) {
               return {
                 item: {
@@ -151,23 +146,48 @@ export function createAbstractOptimisticModel<
             }
           }
         });
+        const subscription = mutation$.subscribe({
+          next(value) {
+            latestValue = value;
+
+            if (value.status === "pending") {
+              impl.updateCache(ql, <T>(data: T, query: G["Query"]) => {
+                const hash = impl.hashQuery(query);
+                return transformer(
+                  (unalteredValues.get(hash) as T | undefined) ?? data,
+                  hash,
+                  queryInjections.getOrCreate(hash, query)
+                );
+              });
+            } else if (value.status === "success") {
+              impl.triggerRefetch(ql);
+            }
+          },
+          error() {
+            layer.unsubscribe();
+
+            impl.triggerRefetch([ql]);
+          }
+        });
       }
     });
   }
   function transformer<Data>(
     unaltered: Data,
     qh: G["QueryHash"],
-    injections: ReturnType<typeof queryInjections.get>
+    injections: ReturnType<typeof queryInjections.getOrCreate>
   ): Data {
     let isAltered = false;
     let value = unaltered;
 
+    console.log("transform", value);
     for (const handler of injections) {
       const newValue = handler.item.transform(value);
       if (newValue !== value) {
         isAltered = true;
       }
       value = newValue;
+      console.log("transform newValue", value);
     }
 
     if (isAltered) {

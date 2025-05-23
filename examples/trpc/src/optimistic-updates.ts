@@ -8,17 +8,19 @@ export function addOptimisticUpdates(
   trpc: TRPCOptionsProxy<AppRouter>
 ) {
   let autoDec = -1;
-  const additions = model.watchMutation(trpc.threads.create, (input) => ({
+  const additions = model.watchMutation(trpc.threads.create, () => ({
     fakeId: autoDec--
   }));
   model.postprocessQuery(
     trpc.threads.all,
     additions,
     (value, mutationState) => {
+      // console.log({ value, mutationState });
       if (
         mutationState.status === "success" &&
         value.find((x) => x.id === mutationState.data.id)
       ) {
+        console.log("stopInjection");
         return stopInjection;
       }
       return [
@@ -31,7 +33,9 @@ export function addOptimisticUpdates(
     trpc.threads.all,
     model.watchMutation(trpc.threads.delete),
     (value, mutationState) => {
+      console.log({ value, mutationState });
       if (!value.find((x) => x.id === mutationState.input.id)) {
+        // console.log('stopInjection');
         return stopInjection;
       }
       return value.filter((x) => x.id !== mutationState.input.id);

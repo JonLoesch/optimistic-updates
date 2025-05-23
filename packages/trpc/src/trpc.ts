@@ -5,6 +5,7 @@ import type {
   TRPCQueryKey
 } from "@trpc/tanstack-react-query";
 import {
+  hashKey,
   matchQuery,
   type QueryClient,
   type QueryFilters
@@ -78,7 +79,10 @@ type MutationState<T extends TRPCMutation> = Pick<
 >;
 
 type G = {
-  Query: Packet<"query">;
+  Query: {
+    path: string[];
+    input: any;
+  };
   QueryLocator: TRPCQuery;
   QueryHash: string;
   MutationLocator: TRPCMutation;
@@ -96,16 +100,21 @@ export function createOptimisticTRPCModel<Router extends AnyTRPCRouter>(
     >
   >();
   const { hooks, model } = createAbstractOptimisticModel<G>({
-    hashQuery: (q) => q.path,
+    hashQuery: (q) => hashKey([q.path, { type: "query", ...q.input }]), // matches the react-query hash
     matchQuery: (ql, q) =>
-      q.path.startsWith((ql.queryKey()[0] as string[]).flat().join(".")),
+      ql.queryKey()[0].every((v, index) => q.path[index] === v),
     triggerRefetch: (ql) => {
       void queryClient.invalidateQueries(filterQueries(ql));
     },
     updateCache: (ql, updater) => {
-      for (const [queryKey] of queryClient.getQueriesData(filterQueries(ql))) {
-        queryClient.setQueryData(queryKey, (data: unknown) => {
-          return updater(data, (queryKey[0] as string[]).flat().join("."));
+      for (const query of queryClient
+        .getQueryCache()
+        .findAll({ queryKey: ql.queryKey() })) {
+        const input = {}; // TODO this is wrong
+        console.log({ input, queryKey: query.queryKey });
+        queryClient.setQueryData(query.queryKey, (data: unknown) => {
+          console.log("queryKey", query.queryKey);
+          return updater(data, { path: query.queryKey[0] as string[], input });
         });
       }
     },
@@ -146,6 +155,7 @@ export function createOptimisticTRPCModel<Router extends AnyTRPCRouter>(
           })
         );
       } else if (op.type === "query") {
+        console.log({ op });
         return next(op).pipe(
           map((response) => {
             return {
@@ -155,11 +165,8 @@ export function createOptimisticTRPCModel<Router extends AnyTRPCRouter>(
                 data:
                   response.result.type === "data"
                     ? hooks.wrapValue(response.result.data, {
-                        ...op,
-                        type: "query",
-                        status: "success",
-                        result: response.result.data,
-                        error: null
+                        path: op.path.split("."),
+                        input: op.input
                       })
                     : response.result.data
               }

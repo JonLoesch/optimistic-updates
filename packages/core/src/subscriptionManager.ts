@@ -60,7 +60,7 @@ export class SubscriptionManager<Key extends PropertyKey, Trigger, Item> {
       };
       function cleanupItem() {
         if (data !== noMatch) data.onCleanupItem?.();
-        layer.items.delete(key);
+        layer.items.set(key, noMatch);
       }
     }
   }
@@ -74,7 +74,7 @@ export class SubscriptionManager<Key extends PropertyKey, Trigger, Item> {
       };
       function cleanupItem() {
         if (data !== noMatch) data?.onCleanupItem?.();
-        layer.items.delete(key);
+        layer.items.set(key, noMatch);
       }
     }
   }

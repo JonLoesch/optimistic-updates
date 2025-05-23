@@ -5,6 +5,7 @@ dist
 
 # Typescript
 *.tsbuildinfo
+**/*.eslintcache
 *.d.ts
 
 # Turborepo

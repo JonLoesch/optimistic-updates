@@ -8,4 +8,4 @@ Monorepo directory structure template from [modern-typescript-monorepo-example](
 - Tests
 - Documentation
 - Make sure react-query example actually works
-- Make sure stopInjection actually works
+- Debug / Stress test -- creating a bunch of items at once triggeres multiple refetches, and doesn't fully update till last one comes back????

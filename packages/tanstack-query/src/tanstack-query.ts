@@ -1,5 +1,8 @@
 import {
   createAbstractOptimisticModel,
+  defaultResultState,
+  type _WatchMutationResultFunc,
+  type InferWatchedType,
   type MutationState,
   type MutationWatch
 } from "@optimistic-updates/core";
@@ -23,6 +26,8 @@ import {
 import { partialMatchKey } from "./partialMatchKey";
 import { Observable, Subject } from "rxjs";
 
+export type { InferWatchedType } from "@optimistic-updates/core";
+
 type G = {
   Query: Query<any, any, any, any>;
   QueryLocator: QueryFilters;
@@ -42,7 +47,7 @@ export function createOptimisticTanstackQueryModel(queryClient: QueryClient) {
     updateCache: (ql, updater) => {
       for (const query of queryClient.getQueryCache().findAll(ql)) {
         queryClient.setQueryData(query.queryKey, (data: unknown) => {
-          return updater(data, query.queryHash);
+          return updater(data, query);
         });
       }
     },
@@ -84,7 +89,13 @@ export function createOptimisticTanstackQueryModel(queryClient: QueryClient) {
   return {
     model: {
       ...model,
-      watchMutation
+      watchMutation<
+        Input,
+        Data,
+        F extends _WatchMutationResultFunc<Input, Data>
+      >(ml: G["MutationLocator"], fn?: F) {
+        return model.watchMutation(ml, defaultResultState<Input, Data, F>(fn!));
+      }
     },
     hooks: {
       wrapOptions

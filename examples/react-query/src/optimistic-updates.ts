@@ -4,54 +4,58 @@ import {
   stopInjection
 } from "@optimistic-updates/tanstack-query";
 import { trpc } from "./utils/trpc";
+import { InferWatchedType } from "../../../packages/core/dist/injectionModel";
 
 export function addOptimisticUpdates(
   model: OptimisticUpdateTanstackQueryModel
 ) {
   let autoDec = -1;
-  const m = {
-    additions: model.watchMutation<
-      { id: number },
-      DefaultError,
-      { title: string },
-      { id: number }
-    >(
-      {
-        mutationKey: trpc.threads.create.mutationKey()
-      },
-      (m) => ({ id: autoDec-- })
-    ),
-    deletions: model.watchMutation<undefined, DefaultError, { id: number }>({
-      mutationKey: trpc.threads.delete.mutationKey()
-    })
-  };
-  model.postprocessQuery<typeof m, { id: number; title: string }[]>(
+  const makeFakeId = () => ({
+    fakeId: autoDec--
+  });
+  const additions = model.watchMutation<
+    { title: string },
+    { id: number },
+    typeof makeFakeId
+  >(
+    {
+      mutationKey: trpc.threads.create.mutationKey()
+    },
+    makeFakeId
+  );
+  model.postprocessQuery<
+    { id: number; title: string }[],
+    InferWatchedType<typeof additions>
+  >(
     { queryKey: trpc.threads.all.queryKey() },
-    m,
+    additions,
     (value, mutationState) => {
-      console.log("optimistic", value, mutationState);
       if (
-        mutationState.additions.every(
-          (m) => m.status === "success" && value.find((x) => x.id === m.data.id)
-        ) &&
-        mutationState.deletions.every(
-          // TODO fix this non-null assertion
-          (m) => !value.find((x) => x.id === m.variables!.id)
-        )
+        mutationState.status === "success" &&
+        value.find((x) => x.id === mutationState.data.id)
       ) {
         return stopInjection;
       }
       return [
         ...value,
-        ...mutationState.additions.map((m) => ({
-          // TODO fix this non-null assertion
-          ...m.variables!,
-          id: m.id
-        }))
-      ].filter(
-        // TODO fix this non-null assertion
-        (x) => !mutationState.deletions.some((d) => d.variables!.id === x.id)
-      );
+        { ...mutationState.input, id: mutationState.context.fakeId }
+      ];
+    }
+  );
+  const deletions = model.watchMutation<{ id: number }, any, any>({
+    mutationKey: trpc.threads.delete.mutationKey()
+  });
+  model.postprocessQuery<
+    { id: number; title: string }[],
+    InferWatchedType<typeof deletions>
+  >(
+    { queryKey: trpc.threads.all.queryKey() },
+    deletions,
+    (value, mutationState) => {
+      if (!value.find((x) => x.id === mutationState.input.id)) {
+        return stopInjection;
+      }
+      return value.filter((x) => x.id !== mutationState.input.id);
     }
   );
   //   let autoDec = -1;

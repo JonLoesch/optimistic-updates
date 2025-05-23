@@ -64,7 +64,7 @@ function Thread(props: { thread: { title: string; id: number } }) {
         value="Delete this Thread"
         onClick={() => deleteThread.mutate({ id: props.thread.id })}
       />
-      <AllPosts threadId={props.thread.id} />
+      {/* <AllPosts threadId={props.thread.id} /> */}
     </div>
   );
 }
