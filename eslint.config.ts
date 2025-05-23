@@ -22,7 +22,8 @@ export default tseslint.config(
       "no-empty": "warn",
       "@typescript-eslint/array-type": "warn",
       "@typescript-eslint/consistent-type-definitions": "warn",
-      "@typescript-eslint/no-empty-object-type": "warn"
+      "@typescript-eslint/no-empty-object-type": "warn",
+      "@typescript-eslint/no-unnecessary-condition": "warn"
     },
     languageOptions: {
       sourceType: "module",

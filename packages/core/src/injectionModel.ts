@@ -1,4 +1,4 @@
-import { getOrCreate } from "./getOrCreate";
+import { filter, map, Observable, startWith, type Subscribable } from "rxjs";
 import { noMatch, SubscriptionManager } from "./subscriptionManager";
 
 export const stopInjection = Symbol("stopInjection");
@@ -22,50 +22,43 @@ type OptimisticUpdateGenericParameters = {
   Query: any;
   QueryLocator: any;
   QueryHash: PropertyKey;
-  Mutation: any;
   MutationLocator: any;
-  MutationHash: PropertyKey;
 };
 
 type Implementation<G extends OptimisticUpdateGenericParameters> = {
-  isMutationErrored: (m: G["Mutation"]) => boolean;
-  isMutationSuccessful: (m: G["Mutation"]) => boolean;
   hashQuery: (q: G["Query"]) => G["QueryHash"];
-  hashMutation: (m: G["Mutation"]) => G["MutationHash"];
   matchQuery: (ql: G["QueryLocator"], q: G["Query"]) => boolean;
-  matchMutation: (ml: G["MutationLocator"], m: G["Mutation"]) => boolean;
   updateCache: (
-    qls: G["QueryLocator"][],
+    ql: G["QueryLocator"],
     updater: <T>(data: T, qh: G["QueryHash"]) => T
   ) => void;
-  triggerRefetch: (qls: G["QueryLocator"][]) => void;
+  triggerRefetch: (ql: G["QueryLocator"]) => void;
+  mutations$: Observable<{
+    input: any;
+    isMatch: (ml: G["MutationLocator"]) => boolean;
+    data$: Observable<any>;
+  }>;
 };
 
-type MutationState<Data, TExtraInitData> = Data & TExtraInitData;
-export type MutationWatch<
-  G extends OptimisticUpdateGenericParameters,
-  Data,
-  TExtraInitData
-> = {
-  ml: G["MutationLocator"];
-  current: Iterable<MutationState<Data, TExtraInitData>>;
-  clearCache: () => void;
+export type MutationState<Data> =
+  | {
+      status: "pending";
+      data: undefined;
+    }
+  | {
+      status: "success";
+      data: Data;
+    };
+type InternalMutationState<Result> = {
+  status: "pending" | "success";
+  result: Result;
 };
 
-export type MutationWatchGroup<G extends OptimisticUpdateGenericParameters> =
-  Record<string, MutationWatch<G, any, any>>;
+export type MutationWatch<Result> = Subscribable<
+  Subscribable<InternalMutationState<Result>>
+>;
 
-export type CurrentMutationState<
-  G extends OptimisticUpdateGenericParameters,
-  Group extends MutationWatchGroup<G>
-> = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [K in keyof Group]: Group[K] extends MutationWatch<G, any, any>
-    ? Group[K]["current"] extends Iterable<infer T>
-      ? T[]
-      : never
-    : never;
-};
+const noValue = Symbol("noValue");
 
 export function createAbstractOptimisticModel<
   G extends OptimisticUpdateGenericParameters
@@ -77,107 +70,87 @@ export function createAbstractOptimisticModel<
       transform: <T>(data: T) => T;
     }
   >();
-  const mutationWatchers = new SubscriptionManager<
-    G["MutationHash"],
-    G["Mutation"],
-    {
-      mutationUpdate: (value: G["Mutation"]) => void;
-    }
-  >();
-  const refreshMap = new SubscriptionManager<
-    G["MutationHash"],
-    G["Mutation"],
-    G["QueryLocator"]
-  >();
   const unalteredValues = new Map<G["QueryHash"], unknown>();
-  let autoInc = 0;
 
-  function watchMutation<Data, TExtraInitData>(
+  function watchMutation<Input, Data, Result>(
     ml: G["MutationLocator"],
-    init: (m: G["Mutation"]) => TExtraInitData,
-    data: (m: G["Mutation"]) => Data
-  ): MutationWatch<G, Data, TExtraInitData> {
-    const values = new Map<number, MutationState<Data, TExtraInitData>>();
-
-    const layer = mutationWatchers.addLayer({
-      createItem: (m, lifecycle) => {
-        if (!impl.matchMutation(ml, m)) {
-          return noMatch;
-        }
-        const index = autoInc++;
-        const context = init(m);
-        return {
-          item: {
-            mutationUpdate: (latest) => {
-              if (impl.isMutationErrored(latest)) {
-                lifecycle.cleanupItem();
-              } else {
-                values.set(index, { ...data(latest), ...context });
-              }
-            }
-          },
-          onCleanupItem: () => values.delete(index)
-        };
-      }
-    });
-
-    return {
-      ml,
-      current: {
-        [Symbol.iterator]: () => values.values()
-      },
-      clearCache: layer.clearCache
-    };
+    result: (input: Input) => (data: MutationState<Data>) => Result
+  ): MutationWatch<Result> {
+    return (
+      impl.mutations$ as Observable<{
+        isMatch: (ml: G["MutationLocator"]) => boolean;
+        input: Input;
+        data$: Observable<Data>;
+      }>
+    ).pipe(
+      filter(({ isMatch }) => isMatch(ml)),
+      map((value) => {
+        const closure = result(value.input);
+        return value.data$.pipe(
+          map((data) => ({ status: "success" as const, data })),
+          startWith({ status: "pending" as const, data: undefined }),
+          map((result) => ({ status: result.status, result: closure(result) }))
+        );
+      })
+    );
   }
-  function currentState<Group extends MutationWatchGroup<G>>(
-    mutationGroup: Group
-  ): CurrentMutationState<G, Group> {
-    const result = Object.fromEntries(
-      Object.entries(mutationGroup).map(([name, m]) => [name, [...m.current]])
-    ) as CurrentMutationState<G, Group>;
-    return result;
-  }
-  function postprocessQuery<Group extends MutationWatchGroup<G>, Data>(
+  function postprocessQuery<Result, Data>(
     ql: G["QueryLocator"],
-    watcherGroup: Group,
+    mutationWatch: MutationWatch<Result>,
     transform: (
       value: Data,
-      mutationState: CurrentMutationState<G, Group>,
+      mutationState: Result,
       query: G["Query"]
     ) => Data | typeof stopInjection
   ) {
-    queryInjections.addLayer({
-      createItem: (q) => {
-        if (impl.matchQuery(ql, q)) {
-          return {
-            item: {
-              transform: handleStopInjection<Data>(
-                (data) => transform(data, currentState(watcherGroup), q),
-                () => {
-                  console.log("poostProcess stop injection");
-                  for (const w of Object.values(watcherGroup)) {
-                    w.clearCache();
-                  }
-                }
-              ) as <T>(data: T) => T
+    mutationWatch.subscribe({
+      next(mutation$) {
+        let latestValue: InternalMutationState<Result> | typeof noValue =
+          noValue;
+        // TODO different token?
+        const subscription = mutation$.subscribe({
+          next(value) {
+            latestValue = value;
+
+            if (value.status === "pending") {
+              impl.triggerRefetch([ql]);
+            } else if (value.status === "success") {
+              impl.updateCache([ql], <T>(data: T, hash: G["QueryHash"]) => {
+                return transformer(
+                  (unalteredValues.get(hash) as T | undefined) ?? data,
+                  hash,
+                  queryInjections.get(hash)
+                );
+              });
             }
-          };
-        } else {
-          return noMatch;
-        }
-      }
-    });
-    refreshMap.addLayer({
-      createItem: (mutation) => {
-        if (
-          Object.values(watcherGroup).some((w) =>
-            impl.matchMutation(w.ml, mutation)
-          )
-        ) {
-          return { item: ql };
-        } else {
-          return noMatch;
-        }
+          },
+          error() {
+            layer.unsubscribe();
+
+            impl.triggerRefetch([ql]);
+          }
+        });
+        const layer = queryInjections.addLayer({
+          createItem: (q, lifecycle) => {
+            if (impl.matchQuery(ql, q)) {
+              return {
+                item: {
+                  transform: handleStopInjection<Data>(
+                    (data) =>
+                      latestValue === noValue
+                        ? stopInjection
+                        : transform(data, latestValue.result, q),
+                    lifecycle.cleanupItem
+                  ) as <T>(data: T) => T
+                },
+                onCleanupItem: () => subscription.unsubscribe()
+                // TODO clean up layer after last item is cleaned up
+              };
+            } else {
+              return noMatch;
+            }
+          }
+        });
       }
     });
   }
@@ -208,31 +181,11 @@ export function createAbstractOptimisticModel<
 
   function wrapValue<Data>(unaltered: Data, query: G["Query"]) {
     const queryHash = impl.hashQuery(query);
-    const newLocal = queryInjections.getOrCreate(queryHash, query);
-    return transformer(unaltered, queryHash, newLocal);
-  }
-  function onMutation(m: G["Mutation"]) {
-    for (const watcher of mutationWatchers.getOrCreate(
-      impl.hashMutation(m),
-      m
-    )) {
-      watcher.item.mutationUpdate(m);
-    }
-    const filters = [...refreshMap.getOrCreate(impl.hashMutation(m), m)].map(
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      (x) => x.item
+    return transformer(
+      unaltered,
+      queryHash,
+      queryInjections.getOrCreate(queryHash, query)
     );
-    if (impl.isMutationSuccessful(m)) {
-      impl.triggerRefetch(filters);
-    } else {
-      impl.updateCache(filters, <T>(data: T, hash: G["QueryHash"]) => {
-        return transformer(
-          (unalteredValues.get(hash) as T | undefined) ?? data,
-          hash,
-          queryInjections.get(hash)
-        );
-      });
-    }
   }
   function onQueryCacheExpired(qh: G["QueryHash"]) {
     for (const i of queryInjections.get(qh)) {
@@ -247,8 +200,61 @@ export function createAbstractOptimisticModel<
     },
     hooks: {
       wrapValue,
-      onMutation,
       onQueryCacheExpired
     }
+  };
+}
+
+export type DefaultResult<Input, Data> = {
+  input: Input;
+} & MutationState<Data>;
+export type DefaultResultC<Input, Data, Context> = DefaultResult<
+  Input,
+  Data
+> & { context: Context };
+
+// export function defaultResultState<Input, Data>(
+//   input: Input
+// ): (data: MutationState<Data>) => DefaultResult<Input, Data> {
+//   return ({ status, data }) =>
+//     ({ input, status, data }) as DefaultResult<Input, Data>;
+// }
+
+export type _WatchMutationResultFunc<Input, Data> =
+  | undefined
+  | ((input: Input) => object | ((data: MutationState<Data>) => any));
+export type ResultOf<
+  Input,
+  Data,
+  F extends _WatchMutationResultFunc<Input, Data>
+> = F extends undefined
+  ? { input: Input } & MutationState<Data>
+  : F extends (input: Input) => infer Context
+    ? Context extends object
+      ? { input: Input; context: Context } & MutationState<Data>
+      : Context extends (data: MutationState<Data>) => infer Result
+        ? Result
+        : never
+    : never;
+
+export function defaultResultState<
+  Input,
+  Data,
+  F extends _WatchMutationResultFunc<Input, Data>
+>(
+  fn: F
+): (input: Input) => (data: MutationState<Data>) => ResultOf<Input, Data, F> {
+  return (input: Input) => {
+    const context =
+      fn?.(input) ?? (({ data, status }) => ({ input, data, status }));
+    return context instanceof Function
+      ? (context as Exclude<typeof context, object>)
+      : ({ data, status }: MutationState<Data>) =>
+          ({
+            data,
+            status,
+            context,
+            input
+          }) as ResultOf<Input, Data, F>;
   };
 }

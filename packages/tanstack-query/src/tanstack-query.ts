@@ -1,5 +1,6 @@
 import {
   createAbstractOptimisticModel,
+  type MutationState,
   type MutationWatch
 } from "@optimistic-updates/core";
 export { stopInjection } from "@optimistic-updates/core";
@@ -16,51 +17,64 @@ import {
   Mutation,
   type MutationKey,
   hashKey,
-  type MutationState,
-  type DefaultError
+  type DefaultError,
+  type MutationStatus
 } from "@tanstack/query-core";
 import { partialMatchKey } from "./partialMatchKey";
+import { Observable, Subject } from "rxjs";
 
 type G = {
   Query: Query<any, any, any, any>;
   QueryLocator: QueryFilters;
   QueryHash: string;
-  Mutation: Mutation<any, any, any, any>;
   MutationLocator: MutationFilters;
-  MutationHash: number;
 };
 
 export type OptimisticUpdateTanstackQueryModel = ReturnType<
   typeof createOptimisticTanstackQueryModel
 >["model"];
 
-function unionFilter(qls: G["QueryLocator"][]): G["QueryLocator"] {
-  return { predicate: (query) => qls.some((p) => matchQuery(p, query)) };
-}
 export function createOptimisticTanstackQueryModel(queryClient: QueryClient) {
   const { model, hooks } = createAbstractOptimisticModel<G>({
-    hashMutation: (m) => m.mutationId,
     hashQuery: (q) => q.queryHash,
-    matchMutation,
     matchQuery,
-    isMutationErrored: (m) => m.state.status === "error",
-    isMutationSuccessful: (m) => m.state.status === "success",
-    triggerRefetch: (qls) =>
-      void queryClient.invalidateQueries(unionFilter(qls)),
-    updateCache: (qls, updater) => {
-      for (const query of queryClient
-        .getQueryCache()
-        .findAll(unionFilter(qls))) {
+    triggerRefetch: (ql) => void queryClient.invalidateQueries(ql),
+    updateCache: (ql, updater) => {
+      for (const query of queryClient.getQueryCache().findAll(ql)) {
         queryClient.setQueryData(query.queryKey, (data: unknown) => {
           return updater(data, query.queryHash);
         });
       }
-    }
-  });
-  queryClient.getMutationCache().subscribe((event) => {
-    if (event.type === "updated") {
-      hooks.onMutation(event.mutation);
-    }
+    },
+    mutations$: new Observable((subscriber) => {
+      const completionHooks = new Map<number, Subject<any>>();
+      queryClient.getMutationCache().subscribe((event) => {
+        if (event.type === "updated") {
+          if (event.mutation.state.status === "pending") {
+            const data$ = new Subject<any>();
+            completionHooks.set(event.mutation.mutationId, data$);
+            subscriber.next({
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              input: event.mutation.state.variables,
+              isMatch(ml) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+                return matchMutation(ml, event.mutation);
+              },
+              data$
+            });
+          } else if (event.mutation.state.status === "error") {
+            const data$ = completionHooks.get(event.mutation.mutationId);
+            data$?.error(event.mutation.state.error);
+            completionHooks.delete(event.mutation.mutationId);
+          } else if (event.mutation.state.status === "success") {
+            const data$ = completionHooks.get(event.mutation.mutationId);
+            data$?.next(event.mutation.state.data);
+            data$?.complete();
+            completionHooks.delete(event.mutation.mutationId);
+          }
+        }
+      });
+    })
   });
   queryClient.getQueryCache().subscribe((event) => {
     if (event.type === "removed") {
@@ -96,35 +110,27 @@ export function createOptimisticTanstackQueryModel(queryClient: QueryClient) {
     };
   }
 
-  function watchMutation<TOutput, TError, TInput>(
+  function watchMutation<Input, Data, Result>(
     m: MutationFilters
-  ): MutationWatch<G, MutationObserverResult<TOutput, TError, TInput>, unknown>;
-  function watchMutation<TOutput, TError, TInput, TExtraInitData>(
+  ): MutationWatch<{ input: Input } & MutationState<Data>>;
+  function watchMutation<Input, Data, Result>(
     m: MutationFilters,
-    init: (m: Mutation<TInput, TError, TOutput>) => TExtraInitData
-  ): MutationWatch<
-    G,
-    MutationObserverResult<TOutput, TError, TInput>,
-    TExtraInitData
-  >;
-  function watchMutation<TOutput, TError, TInput, TExtraInitData>(
+    result: (input: Input) => (data: MutationState<Data>) => Result
+  ): MutationWatch<Result>;
+  function watchMutation<Input, Data, Result>(
     m: MutationFilters,
-    init?: (m: Mutation<TOutput, TError, TInput>) => TExtraInitData
+    result?: (input: Input) => (data: MutationState<Data>) => Result
   ) {
-    return model.watchMutation(
+    return model.watchMutation<Input, Data, Result>(
       m,
-      init ?? ((() => {}) as Exclude<typeof init, undefined>),
-      toObserverResult
+      result ??
+        ((input: Input) =>
+          ({ status, data }: MutationState<Data>) =>
+            ({
+              input,
+              status,
+              data
+            }) as Result)
     );
   }
-}
-
-function toObserverResult<Data = unknown>(m: Mutation<any, any, any, any>) {
-  return {
-    ...m.state,
-    isPending: m.state.status === "pending",
-    isSuccess: m.state.status === "success",
-    isError: m.state.status === "error",
-    isIdle: m.state.status === "idle"
-  } as MutationObserverResult<Data>;
 }

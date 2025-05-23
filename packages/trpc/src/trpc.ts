@@ -19,10 +19,13 @@ import { map, tap } from "@trpc/server/observable";
 import {
   createAbstractOptimisticModel,
   stopInjection,
-  type CurrentMutationState,
   type MutationWatch,
-  type MutationWatchGroup
+  type MutationState as CoreMutationState,
+  defaultResultState,
+  type _WatchMutationResultFunc,
+  type ResultOf
 } from "@optimistic-updates/core";
+import { Observable, type ObservedValueOf, Subject } from "rxjs";
 
 interface TRPCTypeProxy {
   "~types": {
@@ -78,9 +81,7 @@ type G = {
   Query: Packet<"query">;
   QueryLocator: TRPCQuery;
   QueryHash: string;
-  Mutation: Packet<"mutation">;
   MutationLocator: TRPCMutation;
-  MutationHash: number;
 };
 
 export type OptimisticUpdateTRPCModel = ReturnType<
@@ -89,31 +90,30 @@ export type OptimisticUpdateTRPCModel = ReturnType<
 export function createOptimisticTRPCModel<Router extends AnyTRPCRouter>(
   queryClient: QueryClient
 ) {
+  const mutations$ = new Subject<
+    ObservedValueOf<
+      Parameters<typeof createAbstractOptimisticModel<G>>[0]["mutations$"]
+    >
+  >();
   const { hooks, model } = createAbstractOptimisticModel<G>({
-    hashMutation: (m) => m.id,
     hashQuery: (q) => q.path,
-    isMutationErrored: (m) => m.status === "error",
-    isMutationSuccessful: (m) => m.status === "success",
-    matchMutation: (ml, m) =>
-      m.path.startsWith(ml.mutationKey().flat().join(".")),
     matchQuery: (ql, q) =>
       q.path.startsWith((ql.queryKey()[0] as string[]).flat().join(".")),
-    triggerRefetch: (qls) => {
-      void queryClient.invalidateQueries(filterQueries(qls));
+    triggerRefetch: (ql) => {
+      void queryClient.invalidateQueries(filterQueries(ql));
     },
-    updateCache: (qls, updater) => {
-      for (const [queryKey] of queryClient.getQueriesData(filterQueries(qls))) {
+    updateCache: (ql, updater) => {
+      for (const [queryKey] of queryClient.getQueriesData(filterQueries(ql))) {
         queryClient.setQueryData(queryKey, (data: unknown) => {
           return updater(data, (queryKey[0] as string[]).flat().join("."));
         });
       }
-    }
+    },
+    mutations$
   });
-  function filterQueries(qls: TRPCQuery[]): QueryFilters {
+  function filterQueries(ql: TRPCQuery): QueryFilters {
     return {
-      predicate(query) {
-        return qls.some((q) => matchQuery({ queryKey: q.queryKey() }, query));
-      }
+      queryKey: ql.queryKey()
     };
   }
   queryClient.getQueryCache().subscribe((event) => {
@@ -123,32 +123,25 @@ export function createOptimisticTRPCModel<Router extends AnyTRPCRouter>(
     () =>
     ({ next, op }) => {
       if (op.type === "mutation") {
-        hooks.onMutation({
-          ...op,
-          type: "mutation",
-          status: "pending",
-          result: null,
-          error: null
+        const data$ = new Subject<
+          ObservedValueOf<ObservedValueOf<typeof mutations$>["data$"]>
+        >();
+        mutations$.next({
+          isMatch: (ml) =>
+            op.path.startsWith(ml.mutationKey().flat().join(".")),
+          data$,
+          input: op.input
         });
         return next(op).pipe(
           tap({
             next(response) {
-              hooks.onMutation({
-                ...op,
-                type: "mutation",
-                status: "success",
-                result: response.result.data,
-                error: null
-              });
+              data$.next(response.result.data);
             },
             error(error) {
-              hooks.onMutation({
-                ...op,
-                type: "mutation",
-                status: "error",
-                result: null,
-                error
-              });
+              data$.error(error);
+            },
+            complete() {
+              data$.complete();
             }
           })
         );
@@ -179,39 +172,32 @@ export function createOptimisticTRPCModel<Router extends AnyTRPCRouter>(
     };
   return {
     model: {
-      postprocessQuery<
-        Group extends MutationWatchGroup<G>,
-        QL extends G["QueryLocator"]
-      >(
+      postprocessQuery<Result, QL extends G["QueryLocator"]>(
         ql: QL,
-        watcherGroup: Group,
+        watch: MutationWatch<Result>,
         transform: (
           value: QL["~types"]["output"],
-          mutationState: CurrentMutationState<G, Group>,
+          mutationState: Result,
           query: G["Query"]
         ) => QL["~types"]["output"] | typeof stopInjection
       ) {
-        return model.postprocessQuery(ql, watcherGroup, transform);
+        return model.postprocessQuery(ql, watch, transform);
       },
-      watchMutation
+      watchMutation<
+        ML extends G["MutationLocator"],
+        F extends _WatchMutationResultFunc<
+          ML["~types"]["input"],
+          ML["~types"]["output"]
+        >
+      >(ml: ML, fn?: F) {
+        return model.watchMutation(
+          ml,
+          defaultResultState<ML["~types"]["input"], ML["~types"]["output"], F>(
+            fn!
+          )
+        );
+      }
     },
     link
   };
-  function watchMutation<M extends TRPCMutation>(
-    m: M
-  ): MutationWatch<G, MutationState<M>, unknown>;
-  function watchMutation<M extends TRPCMutation, TExtraInitData>(
-    m: M,
-    init: (m: Packet<"mutation">) => TExtraInitData
-  ): MutationWatch<G, MutationState<M>, TExtraInitData>;
-  function watchMutation<M extends TRPCMutation, TExtraInitData = {}>(
-    m: M,
-    init?: (m: Packet<"mutation">) => TExtraInitData
-  ) {
-    return model.watchMutation(
-      m,
-      init ?? ((() => {}) as Exclude<typeof init, undefined>),
-      (x) => x as MutationState<M>
-    );
-  }
 }

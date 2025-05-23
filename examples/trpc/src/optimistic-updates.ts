@@ -8,36 +8,33 @@ export function addOptimisticUpdates(
   trpc: TRPCOptionsProxy<AppRouter>
 ) {
   let autoDec = -1;
+  const additions = model.watchMutation(trpc.threads.create, (input) => ({
+    fakeId: autoDec--
+  }));
   model.postprocessQuery(
     trpc.threads.all,
-    {
-      additions: model.watchMutation(trpc.threads.create, () => ({
-        id: autoDec--
-      })),
-      deletions: model.watchMutation(trpc.threads.delete)
-    },
+    additions,
     (value, mutationState) => {
-      console.log("optimistic", value, mutationState);
       if (
-        mutationState.additions.every(
-          (m) =>
-            m.status === "success" && value.find((x) => x.id === m.result?.id)
-        ) &&
-        mutationState.deletions.every(
-          (m) => !value.find((x) => x.id === m.input.id)
-        )
+        mutationState.status === "success" &&
+        value.find((x) => x.id === mutationState.data.id)
       ) {
         return stopInjection;
       }
       return [
         ...value,
-        ...mutationState.additions.map((m) => ({
-          ...m.input,
-          id: m.id
-        }))
-      ].filter(
-        (x) => !mutationState.deletions.some((d) => d.input.id === x.id)
-      );
+        { ...mutationState.input, id: mutationState.context.fakeId }
+      ];
+    }
+  );
+  model.postprocessQuery(
+    trpc.threads.all,
+    model.watchMutation(trpc.threads.delete),
+    (value, mutationState) => {
+      if (!value.find((x) => x.id === mutationState.input.id)) {
+        return stopInjection;
+      }
+      return value.filter((x) => x.id !== mutationState.input.id);
     }
   );
 }
