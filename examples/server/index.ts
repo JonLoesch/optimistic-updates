@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /**
  * This is the API-handler of your app that contains all your API routes.
  * On a bigger app, you will probably want to split this file up into multiple files.
@@ -12,7 +13,7 @@ const t = initTRPC.create();
 /**
  * Middleware for adding an artificial delay.  (3s-5s)
  */
-const timingMiddleware = t.middleware(async ({ next, path }) => {
+const timingMiddleware = t.middleware(async ({ next }) => {
   const waitMs = Math.floor(Math.random() * 2000) + 3000;
   await new Promise((resolve) => setTimeout(resolve, waitMs));
   return await next();

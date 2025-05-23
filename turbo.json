@@ -2,10 +2,10 @@
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
     "//#lint": {
-      "inputs": ["!.git/**", "!node_modules/**", "!packages/**"]
+      "inputs": ["!.git/**", "!node_modules/**", "!packages/**", "!examples/**"]
     },
     "//#lint:fix": {
-      "inputs": ["!.git/**", "!node_modules/**", "!packages/**"]
+      "inputs": ["!.git/**", "!node_modules/**", "!packages/**", "!examples/**"]
     },
     "//#format": {
       "inputs": ["!.git/**", "!node_modules/**", "!packages/**"]
@@ -30,15 +30,12 @@
     "lint:fix": {},
     "format": {},
     "format:fix": {},
-    "test": {
-      "dependsOn": ["build"]
-    },
+    "test": {},
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": ["tsconfig.tsbuildinfo"]
     }
   },
-  "ui": "tui",
   "globalDependencies": [
     "eslint.config.ts",
     ".lintstagedrc.js",

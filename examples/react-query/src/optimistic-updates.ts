@@ -1,4 +1,3 @@
-import { DefaultError, QueryClient } from "@tanstack/react-query";
 import {
   OptimisticUpdateTanstackQueryModel,
   stopInjection
@@ -42,7 +41,7 @@ export function addOptimisticUpdates(
       ];
     }
   );
-  const deletions = model.watchMutation<{ id: number }, any, any>({
+  const deletions = model.watchMutation<{ id: number }, "success", undefined>({
     mutationKey: trpc.threads.delete.mutationKey()
   });
   model.postprocessQuery<

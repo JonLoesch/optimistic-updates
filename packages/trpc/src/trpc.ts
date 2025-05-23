@@ -1,38 +1,27 @@
 import type { AnyTRPCRouter } from "@trpc/server";
-import type {
-  TRPCMutationKey,
-  TRPCOptionsProxy,
-  TRPCQueryKey
-} from "@trpc/tanstack-react-query";
+import type { TRPCMutationKey, TRPCQueryKey } from "@trpc/tanstack-react-query";
 import {
   hashKey,
-  matchQuery,
   type QueryClient,
   type QueryFilters
 } from "@tanstack/query-core";
-import type {
-  Operation,
-  OperationResultEnvelope,
-  TRPCLink
-} from "@trpc/client";
+import type { TRPCLink } from "@trpc/client";
 
 import { map, tap } from "@trpc/server/observable";
 import {
   createAbstractOptimisticModel,
   stopInjection,
   type MutationWatch,
-  type MutationState as CoreMutationState,
   defaultResultState,
-  type _WatchMutationResultFunc,
-  type ResultOf
+  type _WatchMutationResultFunc
 } from "@optimistic-updates/core";
-import { Observable, type ObservedValueOf, Subject } from "rxjs";
+import { type ObservedValueOf, Subject } from "rxjs";
 
 interface TRPCTypeProxy {
   "~types": {
-    input: any;
-    output: any;
-    errorShape: any;
+    input: unknown;
+    output: unknown;
+    errorShape: unknown;
   };
 }
 
@@ -43,45 +32,10 @@ interface TRPCMutation extends TRPCTypeProxy {
   mutationKey: () => TRPCMutationKey;
 }
 
-type Packet<
-  Type extends Operation["type"],
-  TInput = any,
-  TOutput = any,
-  TError = any
-> = Omit<Operation<TInput>, "type"> & {
-  type: Type;
-} & (
-    | {
-        status: "error";
-        error: TError;
-        result: null;
-      }
-    | {
-        status: "pending";
-        error: null;
-        result: null;
-      }
-    | {
-        status: "success";
-        error: null;
-        result: TOutput;
-      }
-  );
-
-type MutationState<T extends TRPCMutation> = Pick<
-  Packet<
-    "mutation",
-    T["~types"]["input"],
-    T["~types"]["output"],
-    T["~types"]["errorShape"]
-  >,
-  "input" | "status" | "error" | "result"
->;
-
 type G = {
   Query: {
     path: string[];
-    input: any;
+    input: Record<string, unknown>;
   };
   QueryLocator: TRPCQuery;
   QueryHash: string;
@@ -166,7 +120,7 @@ export function createOptimisticTRPCModel<Router extends AnyTRPCRouter>(
                   response.result.type === "data"
                     ? hooks.wrapValue(response.result.data, {
                         path: op.path.split("."),
-                        input: op.input
+                        input: op.input as Record<string, unknown>
                       })
                     : response.result.data
               }
@@ -196,11 +150,11 @@ export function createOptimisticTRPCModel<Router extends AnyTRPCRouter>(
           ML["~types"]["input"],
           ML["~types"]["output"]
         >
-      >(ml: ML, fn?: F) {
+      >(ml: ML, fn: F) {
         return model.watchMutation(
           ml,
           defaultResultState<ML["~types"]["input"], ML["~types"]["output"], F>(
-            fn!
+            fn
           )
         );
       }

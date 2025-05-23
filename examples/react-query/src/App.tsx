@@ -1,14 +1,11 @@
 import {
-  QueriesObserver,
   QueryClientProvider,
-  QueryObserverOptions,
   useMutation,
   useQuery,
   useQueryClient
 } from "@tanstack/react-query";
 import { queryClient, trpc } from "./utils/trpc";
 import { useEffect, useReducer, useState } from "react";
-import { TRPCQueryKey } from "@trpc/tanstack-react-query";
 
 export function App() {
   return (
@@ -45,7 +42,7 @@ function NewThread() {
       <input
         type="button"
         value="Create new Thread"
-        onClick={(e) => {
+        onClick={() => {
           addThread.mutate({ title });
           setTitle("");
         }}
@@ -74,7 +71,6 @@ function AllPosts(props: { threadId: number }) {
   const posts = useQuery(
     trpc.posts.allInThread.queryOptions({ threadId: props.threadId })
   );
-  const queryClient = useQueryClient();
 
   return (
     <>

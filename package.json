@@ -25,7 +25,7 @@
     "dev": "turbo watch typecheck build",
     "lint-format": "turbo run --parallel lint format ",
     "lint-format:fix": "turbo run --parallel lint:fix format:fix",
-    "lint": "eslint",
+    "lint": "eslint --ignore-pattern packages/  --ignore-pattern examples/",
     "lint:fix": "eslint --fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",

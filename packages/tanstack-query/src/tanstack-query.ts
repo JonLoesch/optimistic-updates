@@ -1,10 +1,7 @@
 import {
   createAbstractOptimisticModel,
   defaultResultState,
-  type _WatchMutationResultFunc,
-  type InferWatchedType,
-  type MutationState,
-  type MutationWatch
+  type _WatchMutationResultFunc
 } from "@optimistic-updates/core";
 export { stopInjection } from "@optimistic-updates/core";
 import {
@@ -12,24 +9,17 @@ import {
   matchQuery,
   type MutationFilters,
   Query,
-  type MutationObserverResult,
   type QueryClient,
   type QueryFilters,
   type QueryKey,
-  type QueryObserverOptions,
-  Mutation,
-  type MutationKey,
-  hashKey,
-  type DefaultError,
-  type MutationStatus
+  type QueryObserverOptions
 } from "@tanstack/query-core";
-import { partialMatchKey } from "./partialMatchKey";
 import { Observable, Subject } from "rxjs";
 
 export type { InferWatchedType } from "@optimistic-updates/core";
 
 type G = {
-  Query: Query<any, any, any, any>;
+  Query: Query<unknown, unknown, unknown>;
   QueryLocator: QueryFilters;
   QueryHash: string;
   MutationLocator: MutationFilters;
@@ -47,22 +37,21 @@ export function createOptimisticTanstackQueryModel(queryClient: QueryClient) {
     updateCache: (ql, updater) => {
       for (const query of queryClient.getQueryCache().findAll(ql)) {
         queryClient.setQueryData(query.queryKey, (data: unknown) => {
-          return updater(data, query);
+          return updater(data, query as G["Query"]);
         });
       }
     },
     mutations$: new Observable((subscriber) => {
-      const completionHooks = new Map<number, Subject<any>>();
+      const completionHooks = new Map<number, Subject<unknown>>();
       queryClient.getMutationCache().subscribe((event) => {
         if (event.type === "updated") {
           if (event.mutation.state.status === "pending") {
-            const data$ = new Subject<any>();
+            const data$ = new Subject<unknown>();
             completionHooks.set(event.mutation.mutationId, data$);
             subscriber.next({
               // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               input: event.mutation.state.variables,
               isMatch(ml) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
                 return matchMutation(ml, event.mutation);
               },
               data$
@@ -93,8 +82,8 @@ export function createOptimisticTanstackQueryModel(queryClient: QueryClient) {
         Input,
         Data,
         F extends _WatchMutationResultFunc<Input, Data>
-      >(ml: G["MutationLocator"], fn?: F) {
-        return model.watchMutation(ml, defaultResultState<Input, Data, F>(fn!));
+      >(ml: G["MutationLocator"], fn: F) {
+        return model.watchMutation(ml, defaultResultState<Input, Data, F>(fn));
       }
     },
     hooks: {
@@ -116,32 +105,8 @@ export function createOptimisticTanstackQueryModel(queryClient: QueryClient) {
           : async (params) => {
               const result = await queryFn(params);
               // TODO fix this hack (cast is completely wrong)
-              return hooks.wrapValue(result, options as any as Query);
+              return hooks.wrapValue(result, options as unknown as G["Query"]);
             }
     };
-  }
-
-  function watchMutation<Input, Data, Result>(
-    m: MutationFilters
-  ): MutationWatch<{ input: Input } & MutationState<Data>>;
-  function watchMutation<Input, Data, Result>(
-    m: MutationFilters,
-    result: (input: Input) => (data: MutationState<Data>) => Result
-  ): MutationWatch<Result>;
-  function watchMutation<Input, Data, Result>(
-    m: MutationFilters,
-    result?: (input: Input) => (data: MutationState<Data>) => Result
-  ) {
-    return model.watchMutation<Input, Data, Result>(
-      m,
-      result ??
-        ((input: Input) =>
-          ({ status, data }: MutationState<Data>) =>
-            ({
-              input,
-              status,
-              data
-            }) as Result)
-    );
   }
 }

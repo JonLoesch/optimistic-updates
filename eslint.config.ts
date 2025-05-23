@@ -12,7 +12,18 @@ export default tseslint.config(
       tseslint.configs.strictTypeChecked
     ],
     rules: {
-      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          args: "all",
+          argsIgnorePattern: "^_",
+          caughtErrors: "all",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          ignoreRestSiblings: true
+        }
+      ],
       "@typescript-eslint/no-non-null-assertion": "warn",
       "@typescript-eslint/no-empty-function": "warn",
       "@typescript-eslint/no-confusing-void-expression": "off",
@@ -21,9 +32,11 @@ export default tseslint.config(
       "prefer-const": "warn",
       "no-empty": "warn",
       "@typescript-eslint/array-type": "warn",
-      "@typescript-eslint/consistent-type-definitions": "warn",
+      "@typescript-eslint/consistent-type-definitions": "off",
       "@typescript-eslint/no-empty-object-type": "warn",
-      "@typescript-eslint/no-unnecessary-condition": "warn"
+      "@typescript-eslint/no-unnecessary-condition": "warn",
+      "no-unused-private-class-members": "warn",
+      "@typescript-eslint/no-extraneous-class": "warn"
     },
     languageOptions: {
       sourceType: "module",
@@ -38,11 +51,13 @@ export default tseslint.config(
   },
   {
     ignores: [
-      ".pnpm-store",
-      "pnpm-lock.yaml",
-      "**/node_modules/*",
-      "**/dist/*",
-      "**/.*"
+      ...[
+        ".pnpm-store",
+        "pnpm-lock.yaml",
+        "**/node_modules/*",
+        "**/dist/*",
+        "**/.*"
+      ]
     ]
   }
 ) as ConfigArray;

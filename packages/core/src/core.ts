@@ -1,38 +1,24 @@
 import {
+  catchError,
   filter,
   map,
+  mergeMap,
   Observable,
+  of,
   startWith,
+  Subject,
   type ObservedValueOf,
   type Subscribable
 } from "rxjs";
-import { noMatch, SubscriptionManager } from "./subscriptionManager";
+import type { OptimisticUpdateGenericParameters } from "./types";
+import { CacheLayer, LayeredQueryCache, noMatch } from "./layeredQueryCache";
+import { assertUnreachable } from "./assertUnreachable";
 
 export const stopInjection = Symbol("stopInjection");
 
-function handleStopInjection<T>(
-  transform: (data: T) => T | typeof stopInjection,
-  onStopInjection: () => void
-): (data: T) => T {
-  return (data) => {
-    const transformed = transform(data);
-    if (transformed === stopInjection) {
-      onStopInjection();
-      return data;
-    } else {
-      return transformed;
-    }
-  };
-}
-
-type OptimisticUpdateGenericParameters = {
-  Query: any;
-  QueryLocator: any;
-  QueryHash: PropertyKey;
-  MutationLocator: any;
-};
-
-type Implementation<G extends OptimisticUpdateGenericParameters> = {
+export type ImplementationParameters<
+  G extends OptimisticUpdateGenericParameters
+> = {
   hashQuery: (q: G["Query"]) => G["QueryHash"];
   matchQuery: (ql: G["QueryLocator"], q: G["Query"]) => boolean;
   updateCache: (
@@ -41,11 +27,15 @@ type Implementation<G extends OptimisticUpdateGenericParameters> = {
   ) => void;
   triggerRefetch: (ql: G["QueryLocator"]) => void;
   mutations$: Observable<{
-    input: any;
+    input: unknown;
     isMatch: (ml: G["MutationLocator"]) => boolean;
-    data$: Observable<any>;
+    data$: Observable<unknown>;
   }>;
 };
+
+function generic<Data>(fn: (x: Data) => Data | typeof stopInjection) {
+  return fn as <T>(x: T) => T | typeof stopInjection;
+}
 
 export type MutationState<Data> =
   | {
@@ -62,32 +52,38 @@ type InternalMutationState<Result> = {
 };
 
 export type MutationWatch<Result> = Subscribable<
-  Subscribable<InternalMutationState<Result>>
+  Observable<InternalMutationState<Result>>
 >;
 
-export type InferWatchedType<W extends MutationWatch<any>> =
+export type InferWatchedType<W extends MutationWatch<unknown>> =
   W extends MutationWatch<infer X> ? X : never;
-
-const noValue = Symbol("noValue");
 
 export function createAbstractOptimisticModel<
   G extends OptimisticUpdateGenericParameters
->(impl: Implementation<G>) {
-  const queryInjections = new SubscriptionManager<
-    G["QueryHash"],
-    G["Query"],
-    {
-      transform: <T>(data: T) => T;
-    }
+>(impl: ImplementationParameters<G>) {
+  const queryInjections = new LayeredQueryCache<
+    G,
+    <T>(data: T) => T | typeof stopInjection
   >();
   const unalteredValues = new Map<G["QueryHash"], unknown>();
+  const onMutation = new Subject<ObservedValueOf<typeof impl.mutations$>>();
+  impl.mutations$.subscribe(onMutation);
+  impl.mutations$
+    .pipe(mergeMap((x) => x.data$.pipe(catchError(() => of()))))
+    .subscribe({
+      next() {
+        // Do this after every mutation state change
+        queryInjections.gc();
+      }
+    });
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   function watchMutation<Input, Data, Result>(
     ml: G["MutationLocator"],
     result: (input: Input) => (data: MutationState<Data>) => Result
   ): MutationWatch<Result> {
     return (
-      impl.mutations$ as Observable<{
+      onMutation as Observable<{
         isMatch: (ml: G["MutationLocator"]) => boolean;
         input: Input;
         data$: Observable<Data>;
@@ -104,7 +100,7 @@ export function createAbstractOptimisticModel<
       })
     );
   }
-  function postprocessQuery<Data, Result = any>(
+  function postprocessQuery<Data, Result>(
     ql: G["QueryLocator"],
     mutationWatch: MutationWatch<Result>,
     transform: (
@@ -115,60 +111,51 @@ export function createAbstractOptimisticModel<
   ) {
     mutationWatch.subscribe({
       next(mutation$) {
-        let latestValue: InternalMutationState<Result> | typeof noValue =
-          noValue;
-        console.log("addLayer");
-        const layer = queryInjections.addLayer({
-          createItem: (q, lifecycle) => {
-            console.log(
-              "layer match",
-              impl.matchQuery(ql, q),
-              ql,
-              q,
-              mutationWatch
-            );
-            if (impl.matchQuery(ql, q)) {
-              return {
-                item: {
-                  transform: handleStopInjection<Data>(
-                    (data) =>
-                      latestValue === noValue
+        let latestValue:
+          | InternalMutationState<Result>
+          | { status: "error" | "pending" } = { status: "pending" };
+        queryInjections.add(
+          () =>
+            new CacheLayer({
+              create: (q) => {
+                if (impl.matchQuery(ql, q)) {
+                  return generic((data: Data) =>
+                    "result" in latestValue
+                      ? transform(data, latestValue.result, q)
+                      : latestValue.status === "error"
                         ? stopInjection
-                        : transform(data, latestValue.result, q),
-                    lifecycle.cleanupItem
-                  ) as <T>(data: T) => T
-                },
-                onCleanupItem: () => subscription.unsubscribe()
-                // TODO clean up layer after last item is cleaned up
-              };
-            } else {
-              return noMatch;
-            }
-          }
-        });
-        const subscription = mutation$.subscribe({
-          next(value) {
-            latestValue = value;
+                        : data
+                  );
+                } else {
+                  return noMatch;
+                }
+              },
+              canGC: () => latestValue.status !== "pending"
+            })
+        );
+        mutation$
+          .pipe(catchError(() => of({ status: "error" as const })))
+          .subscribe({
+            next(value) {
+              latestValue = value;
 
-            if (value.status === "pending") {
-              impl.updateCache(ql, <T>(data: T, query: G["Query"]) => {
-                const hash = impl.hashQuery(query);
-                return transformer(
-                  (unalteredValues.get(hash) as T | undefined) ?? data,
-                  hash,
-                  queryInjections.getOrCreate(hash, query)
-                );
-              });
-            } else if (value.status === "success") {
-              impl.triggerRefetch(ql);
+              if (value.status === "pending" || value.status === "error") {
+                impl.updateCache(ql, <T>(data: T, query: G["Query"]) => {
+                  const hash = impl.hashQuery(query);
+                  return transformer(
+                    (unalteredValues.get(hash) as T | undefined) ?? data,
+                    hash,
+                    queryInjections.getOrCreate(hash, query)
+                  );
+                });
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+              } else if (value.status === "success") {
+                impl.triggerRefetch(ql);
+              } else {
+                assertUnreachable(value.status);
+              }
             }
-          },
-          error() {
-            layer.unsubscribe();
-
-            impl.triggerRefetch([ql]);
-          }
-        });
+          });
       }
     });
   }
@@ -180,14 +167,16 @@ export function createAbstractOptimisticModel<
     let isAltered = false;
     let value = unaltered;
 
-    console.log("transform", value);
-    for (const handler of injections) {
-      const newValue = handler.item.transform(value);
+    for (const [transform, s] of injections) {
+      const newValue = transform(value);
+      if (newValue === stopInjection) {
+        s.unsubscribe();
+        continue;
+      }
       if (newValue !== value) {
         isAltered = true;
       }
       value = newValue;
-      console.log("transform newValue", value);
     }
 
     if (isAltered) {
@@ -208,9 +197,7 @@ export function createAbstractOptimisticModel<
     );
   }
   function onQueryCacheExpired(qh: G["QueryHash"]) {
-    for (const i of queryInjections.get(qh)) {
-      i.cleanupItem();
-    }
+    queryInjections.delete(qh);
   }
 
   return {
@@ -242,7 +229,7 @@ export type DefaultResultC<Input, Data, Context> = DefaultResult<
 
 export type _WatchMutationResultFunc<Input, Data> =
   | undefined
-  | ((input: Input) => object | ((data: MutationState<Data>) => any));
+  | ((input: Input) => object | ((data: MutationState<Data>) => unknown));
 export type ResultOf<
   Input,
   Data,

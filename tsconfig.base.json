@@ -22,7 +22,7 @@
     "emitDecoratorMetadata": false,
 
     /* Uncategorized options */
-    "verbatimModuleSyntax": true,
+    // "verbatimModuleSyntax": true,
     "importsNotUsedAsValues": "remove",
     "module": "ES2022",
     "noUnusedLocals": false,

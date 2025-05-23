@@ -4,6 +4,7 @@ export function partialMatchKey(a: QueryKey, b: QueryKey): boolean {
   return _partialMatchKey(a, b);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function _partialMatchKey(a: any, b: any): boolean {
   if (a === b) {
     return true;
