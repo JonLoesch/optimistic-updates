@@ -1,25 +1,17 @@
-# TanStack Query / Optimistic Updates -- A proof-of-concept framework
+---
+# Feel free to add content and custom Front Matter to this file.
+# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
+
+layout: home
+---
+
+# Optimistic Updates -- A proof-of-concept framework
 
 ### Disclaimer
 
-So, first up: This idea is half baked and has many problems in the implementation (among other things, errors in the network stack are not properly propogated through and kind of just swallowed). So don't use it in any real system. You've been warned.
+So, first up: This idea is not yet fully baked and has many problems in the implementation (among other things, errors in the network stack are not properly propogated through and kind of just swallowed). So don't use it in any real system. You've been warned.
 
 That said I _believe_ most of the problems here are due to "I haven't done that yet", not due to any sort of structural impossibility. If this is something that you think would be helpful for your project, let me know and I can start trying to build it out fully. That's the whole point of this demo, to gauge community interest.
-
-### My Questions
-
-There are a couple questions I am trying to answer:
-
-- Is this similar to something that already exists? I looked and couldn't find anything but maybe I'm dumb.
-- Is this something that is of any interest to people? How many people actually write detailed optimistic update logic for their applications, and how often is that an important part of application architecture?
-- Does the interface I've laid out below make sense to people? Are there better ways of organizing the code, what would make sense for the most people's application structures?
-- Is this the right place for this?
-
-The biggest question I am trying to answer is:
-
-> Should I pursue this as an optional componion module for tanstack query? Or as a fork/PR? Or at all?
-
-I'm hoping that discussion around this topic can answer some of these questions for me.
 
 # The problem statement
 

@@ -11,3 +11,7 @@ Monorepo directory structure template from [modern-typescript-monorepo-example](
 - Look at CI
 - Make `ResultOf` pattern not suck
 - e2e tests for example apps
+- Look into: @tanstack/query-devtools ("Developer tools to interact with and visualize the TanStack Query cache")
+- Fill out the list of tech used
+- Fill out example project READMEs
+- example project -> codesandbox make sure it works
