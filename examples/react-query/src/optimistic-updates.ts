@@ -1,9 +1,9 @@
 import {
   OptimisticUpdateTanstackQueryModel,
-  stopInjection
+  stopInjection,
+  type InferWatchedType
 } from "@optimistic-updates/tanstack-query";
 import { trpc } from "./utils/trpc";
-import { InferWatchedType } from "../../../packages/core/dist/injectionModel";
 
 export function addOptimisticUpdates(
   model: OptimisticUpdateTanstackQueryModel
@@ -41,9 +41,12 @@ export function addOptimisticUpdates(
       ];
     }
   );
-  const deletions = model.watchMutation<{ id: number }, "success", undefined>({
-    mutationKey: trpc.threads.delete.mutationKey()
-  });
+  const deletions = model.watchMutation<{ id: number }, "success", undefined>(
+    {
+      mutationKey: trpc.threads.delete.mutationKey()
+    },
+    undefined
+  );
   model.postprocessQuery<
     { id: number; title: string }[],
     InferWatchedType<typeof deletions>

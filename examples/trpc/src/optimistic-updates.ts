@@ -1,7 +1,9 @@
 import { AppRouter } from "../../server";
 import { TRPCOptionsProxy } from "@trpc/tanstack-react-query";
-import { OptimisticUpdateTRPCModel } from "@optimistic-updates/trpc";
-import { stopInjection } from "../../../packages/core/dist/injectionModel";
+import {
+  OptimisticUpdateTRPCModel,
+  stopInjection
+} from "@optimistic-updates/trpc";
 
 export function addOptimisticUpdates(
   model: OptimisticUpdateTRPCModel,
@@ -31,11 +33,10 @@ export function addOptimisticUpdates(
   );
   model.postprocessQuery(
     trpc.threads.all,
-    model.watchMutation(trpc.threads.delete),
+    model.watchMutation(trpc.threads.delete, undefined),
     (value, mutationState) => {
       console.log({ value, mutationState });
       if (!value.find((x) => x.id === mutationState.input.id)) {
-        // console.log('stopInjection');
         return stopInjection;
       }
       return value.filter((x) => x.id !== mutationState.input.id);

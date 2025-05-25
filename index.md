@@ -1,10 +1,3 @@
----
-# Feel free to add content and custom Front Matter to this file.
-# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
-
-layout: home
----
-
 # Optimistic Updates -- A proof-of-concept framework
 
 ### Disclaimer
@@ -13,47 +6,248 @@ So, first up: This idea is not yet fully baked and has many problems in the impl
 
 That said I _believe_ most of the problems here are due to "I haven't done that yet", not due to any sort of structural impossibility. If this is something that you think would be helpful for your project, let me know and I can start trying to build it out fully. That's the whole point of this demo, to gauge community interest.
 
-# The problem statement
+# The problem statement - A brief primer on optimistic updates
 
-Optimistic updates are the idea of having the UI update before it recieves final confirmation from the server. There are a few patterns for this using TanStack Query as a library, but I'll be using [this example](https://tanstack.com/query/latest/docs/framework/react/guides/optimistic-updates#updating-a-list-of-todos-when-adding-a-new-todo) for my discussion. This is the code sample, for reference:
+Optimistic updates are the idea of having the UI update before it recieves final confirmation from the server.
 
-```
-const queryClient = useQueryClient()
+There are lots of ways that web clients can interact with servers, but broadly they fall into two categories: queries for fetching the current state of the world, and mutations for altering the current state of the world. A "Query Library" is generally used to manage the state of these queries, deduplicate them, handle caching, etc... "react-query" is a very popular query library and it is currently the one we're working with. But we're also trying to build things generically so that this is applicable to any query library (SWR, RTK-Query, etc..) So we'll use the generic term "Query Library". Here's an example data flow for a web page that has a bunch of threads a method for adding more:
 
-useMutation({
-  mutationFn: updateTodo,
-  // When mutate is called:
-  onMutate: async (newTodo) => {
-    // Cancel any outgoing refetches
-    // (so they don't overwrite our optimistic update)
-    await queryClient.cancelQueries({ queryKey: ['todos'] })
-
-    // Snapshot the previous value
-    const previousTodos = queryClient.getQueryData(['todos'])
-
-    // Optimistically update to the new value
-    queryClient.setQueryData(['todos'], (old) => [...old, newTodo])
-
-    // Return a context object with the snapshotted value
-    return { previousTodos }
-  },
-  // If the mutation fails,
-  // use the context returned from onMutate to roll back
-  onError: (err, newTodo, context) => {
-    queryClient.setQueryData(['todos'], context.previousTodos)
-  },
-  // Always refetch after error or success:
-  onSettled: () => queryClient.invalidateQueries({ queryKey: ['todos'] }),
-})
+```mermaid
+sequenceDiagram
+    participant C as Client (WebApp)
+    participant Q as Query Library
+    participant S as Web Server
+    Note over C, S: Initial render
+    C->>Q: query(threads.all)
+    Q->>S: query(threads.all)
+    S-->>+Q: query response
+    Note right of Q: cache entry created
+    Q-->>C: UI updated with query data
+    Note over C,S: User update and re-render
+    C->>Q: mutation(threads.create)
+    Q->>S: mutation(threads.create)
+    S-->>Q: mutation response
+    Q-->>C: mutation response
+    opt: if mutation is successful
+        C->>Q: cache invalidate(threads.all)
+        Q->>S: query(threads.all)
+        S-->>Q: query response
+        Q-->>C: UI updated with query data
+    end
+    deactivate Q
 ```
 
-This implementation works, and it's relatively easy to understand the data flow. But I have two fundamental problems with this approach:
+But what if you want to give the user more immediate feedback? There is theoretically no way for the client to know _exactly_ how the server will respond to a given update, but it is a reasonable assumption that the server will probably respond with a success. So we can code the client to "optimistically" assume the server will respond a certain way and then change its assumption if it later turns out it was wrong:
 
-1. This means that the logic for optimistic updates lives co-located inside the UI. In my opinion, this logic is more directly coupled with the shape of your API, and the interdependencies between which POST methods will cause changes in other GET methods, etc... Having the logic for these (potentially much more intricate) data updates mixed in with the logic for UI updates seems like a recipe for complexity to me. [Single responsibility](https://en.wikipedia.org/wiki/Single-responsibility_principle) and all that.
-2. I also think that the above logic is not quite correct with regards to all possible race conditions. I'll elaborate more on this [below](#race-conditions)
+```mermaid
+sequenceDiagram
+    participant C as Client (WebApp)
+    participant Q as Query Library
+    participant S as Web Server
+    Note over C, S: Initial render (same as above)
+    C->>Q: query(threads.all)
+    Q->>S: query(threads.all)
+    S-->>+Q: query response
+    Note right of Q: cache entry created
+    Q-->>C: UI updated with query data
+    Note over C,S: User update and re-render
+    C->>Q: mutation(threads.create)
+    Q-->>Q: Optimistically update query cache
+    Q-->>C: UI updated with query data
+    Q->>S: mutation(threads.create)
+    S-->>Q: mutation response
+    Q-->>C: mutation response
+    opt: if mutation is successful
+        C->>Q: cache invalidate(threads.all)
+        Q->>S: query(threads.all)
+        S-->>Q: query response
+        Q-->>Q: Replace query cache optimistic update with real value
+        Q-->>C: UI updated with query data
+    end
+    opt: if mutation was an error
+        Q-->>Q: Replace query cache optimistic update with real value
+        Q-->>C: UI updated with query data
+    end
+    deactivate Q
+```
 
-### Alternatives
+Optimistic updates can achieve higher _apparent_ response times in web apps. The two big downsides is that this comes at the cost of increased development complexity, and also a bit of visual jarring if it turns out the server does not respond with a success (the user sees a success which then magically transforms into a failure some milliseconds or seconds later).
 
+# This library
+
+This library is an attempt to help application developers effectively deal with some (not all but some) of the extra development complexity of optimistic updates. In particular, this library attempts to handle the state management of dealing with network requests, and handling the caching of old values and rollbacks on failure. **What's left to the application is the actual logic of how to update the client state assuming a server success**, which is still a big lift and coupled to the actual application so can't really be abstracted into a library.
+
+There are a few opinions and design philosophies in this library. You may disagree with them, but we'll state the rationale up front.
+
+Other minor note: I'm using [TRPC](https://trpc.io/) for my examples below because I think it makes the examples cleaner. TRPC is not necessary for the core of this library, it's just provided as an integration. If you're not familiar with TRPC, what's relevant here is that it provides a way to uniquily identify API endpoints, in a way that also automatically infers their input and return types.
+
+### Opinion 1 - Optimistic update logic is more closely coupled with the backend than the frontend
+
+This may be counterintuitive, expecially because the optimistic update logic runs in the browser. And it interfaces with the client cache. But those are concerns of the optimistic update _engine_ (i.e. this library), not the optimistic update _application logic_ (i.e. your code). Maybe an example will clarify this. Consider this example code. Pretend the `engine` variable represents some instance of this library. It selects a set of mutations to operate on (`trpc.threads.delete`). And it selects a query to optimistically alter the value of (`trpc.threads.all`). And then it provides the function to optimistically update the value (`(value, mutationState) => {...}`). In this example, `engine` lives in client space, and the endpoints `trpc.threads.delete` and `trpc.threads.all` live in client space -- but the actual update logic in the callback is dependent on exactly the shape of the API. In this example, the mutation is a simple delete and the query simply returns a list, so the update logic is just an array filter. But in theory, the more complicated your API interface gets, the more complicated the dependencies are between various endpoints, the logic inside `(value, mutationState) => {...}` can get more complex. This library is designed such that none of the code in the transform callback has to deal with frontend concerns at all.
+
+```
+  engine.inject(
+    trpc.threads.delete, // endpoint for what mutation(s) to optimistically update off of
+    trpc.threads.all,    // endpoint for what query(s) to optimistically insert into
+    (value, mutationState) => {
+      // transform callback.  An injection is created for every (query,mutation) pair that matches the above endpoints.
+      // Injection continues until it is stopped, either automatically (via mutation failure) or manually (via returning stopInjection below)
+      if (!value.find((x) => x.id === mutationState.input.id)) {
+        return stopInjection;
+      }
+      return value.filter((x) => x.id !== mutationState.input.id);
+    }
+  );
+```
+
+We have designed the library this way so that the transform callbacks can be maintained in a place of code co-located or semi-co-located with where the APIs are actually defined. This is so that changes made to the server API can be tied to the corresponding changes that need to be made to the optimistic update layer.
+
+### Opinion 2 - Optimistic updates should be described in terms of immutable transformations
+
+The above example code has a function that takes a (readonly) `value` and a current `mutationState` and returns a new value (or a `stopInjection` token). This is following a principle of immutable updates. Rather than interacting directly with the client side data store, this library keeps track of all active injections as immutable transformation functions. This has some benefits:
+
+- When injection starts, we can safely maintain two separate cached values -- one directly from the server, and one after injected transformation(s) have been applied. Since transformations are immutable, there's no chance of a transformation messing up the raw from server cache.
+- We seamlessly and without any extra effort handle multiple mutations that are active at once affecting a single query.
+- When a mutation fails, we don't have to do anything special to roll back the client state. We just remove the transform function from the list and trigger a client refresh.
+- If a mutation fires while a related query is already in flight, there's no timing issues or any special logic required. Since all the queries include a pass through the transform function(s) at the very end, and since this pass is not async, (and since javascript is single threaded) there is no chance of a returning query accidentally cloberring over an optimistic update in the client cache
+
+### Opinion 3 - Optimistic updates should be specified as a layer and not ad-hoc
+
+I think optimistic update logic should described as a cross-cutting concern at the application level in some initialization block, not on a per-query or per-mutation level. One of the most common approaches for optimistic updates I am aware of is described [here](https://tanstack.com/query/latest/docs/framework/react/guides/optimistic-updates#updating-a-list-of-todos-when-adding-a-new-todo) and it essentially amounts to putting some extra logic in line with your mutation call, at the time and in the code where your UI requires it. It's convinient and works for one-offs, but it is my opinion that if your applications gets to the point where it's doing more than a small amount of optimistic update logic this approach will fall down rather quickly. (NOTE: This isn't to say that Tanstack query doesn't support providing this logic in an initialization block. It does, but this particular linked example doesn't capture that).
+
+This is clearer to explain with psuedocode I think:
+
+```
+// Somewhere in your client initialization:
+
+trpc = ...; // initialize trpc
+engine = ...; // initialize optimistic engine
+
+engine.attachToTRPC(trpc);
+  // hook into the TRPC process to intercept any
+  // queries or mutations and apply logic accordingly
+
+addOptimisticInjections(engine);
+
+<TRPCProvider value={trpc}>
+  // this is the part that provides the trpc in a context
+  // to the rest of your application (this is unchanged from normal TRPC setup)
+  ...
+</TRPCProvider>
+
+------------------------------------------------------------------------
+
+// Probably in another file somewhere or split between
+// multiple files depending on how complicated it gets:
+
+addOptimisticInjections(engine) {
+  engine.inject(...); // This inject call will set up logic for injecting
+                      // from a single mutation endpoint into a single query endpoint
+  engine.inject(...); // this will be for a different (mutation, query) endpoint pair
+  engine.inject(...); // Can be called as many times as needed ...
+  ...
+}
+
+------------------------------------------------------------------------
+
+// Throughout the rest of the application, useQuery and useMutation
+// can be used as normal, and the optimistic update logic will
+// happen automatically if the endpoints match the defined injections.
+
+// Probably there will be some way to specify opt-in or opt-out logic
+// or something along those lines, but the main point is that the logic
+// directoly in the UI should not be more complicated than maybe
+// specifying an extra boolean flag
+```
+
+# How does it work?
+
+This is the core statement of the optimistic update engine: **Whenever a mutation event happens and an associated query is run, the optimistic engine will use the transform function(s) to transparently alter the return value of the query**. In this statement, "associated" means they have been tied together with an `engine.inject` call. "mutation event" means either a send, a success respone, or an error response. It doesn't matter how many mutations affect a single query, or how many queries are affected by a single mutation. It doesn't matter what in what order the mutations and queries happen. Queries that are in flight at the time of the mutation, queries that are completed and cached at the time of the mutation, queries that don't happen until after the mutation has already started -- all of it works and updates the client UI synchronously.
+
+# Playing around
+
+TODO link to StackBlitz
+
+# How does it actually work (under the hood)??
+
+DISCLAIMER: It should be noted that this library is still at version `0.0.0` in prerelease under active development. It does actually work, I've got some examples to prove it, and some Jest test cases as well. But the polish isn't _quite_ there yet, and some of the code examples written in this doc are not-quite-right. (In many cases though the code in the doc is how I _want_ things to work it's just not quite there yet).
+
+The core of the library is immutable transofmation functions (opinion #2) and two caches, one for the unaltered value and one for the altered value. (note: this is not actually 100% accurate, see [cache issues](#cache-issues) below). This is whata basic optimistic workflow looks like under architecture
+
+Conceptually, you can think of the list of injections and pre-transform cache as always being there, even through they are pruned when they are not necessary. Most of the rest of this doc considers the pre-transform cache entry as always being present because it cuts down on cases to not have to think about the implementation details of "what if this was the first injection for this query", or "what if this injection was the last to stop for this query" or "what if the query library cache expired this entry while we had active injections", or whatnot.
+
+```mermaid
+sequenceDiagram
+    participant C as Client (WebApp)
+    box LightGoldenRodYellow Optimistic update engine
+        participant A as Post-transform Cache<br/>(altered value)
+        participant I as Active Injections
+        participant U as Pre-transform Cache<br/>(unaltered value)
+    end
+    participant S as Web Server
+    Note over C, S: Initial render
+    C->>S: query(threads.all)
+    S-->>C: query response
+    activate A
+    activate U
+    Note over C,S: User update and re-render
+    C->>S: mutation(threads.create)
+    activate I
+    U-->>I: transform
+    I-->>A: transform
+    A-->>C: UI updated with query data
+    S-->>C: mutation response
+    opt: if mutation is successful
+        I->>I: Adjust injection to account for successful mutation state
+        deactivate I
+        activate I
+        U-->>I: transform
+        I-->>A: transform
+        A-->>C: UI updated with query data
+        C->>S: query(threads.all)
+        S-->>U: query response (update cache)
+        U-->>I: query response<br/>(remove injection because its no longer necessary)
+        deactivate I
+        I-->>A: query response (update cache)
+        A-->>C: UI updated with query data
+    end
+    opt: if mutation was an error
+        I->>I: remove injection since it is no longer valid
+        U-->>A: transform (no-op since injection list is empty)
+        A-->>C: UI updated with query data
+    end
+    deactivate U
+    deactivate A
+```
+
+### Query Library Integration
+
+The engine must be attached to a client query library in some way. Depending on which query library is used (react-query, SWR, TRPC, etc...) the specifics might be different, but essentially we need these things from the client fetching library:
+
+- be notified of mutations as they happen (on send, on response, and on error)
+- Read / Write access to the query library's cache (see [cache issues](#cache-issues) below)
+  - We also need to be notified when things expire from this cache
+- The ability to trigger a full refetch of queries when required (this is perhaps not _strictly_ required but it cuts down a lot on boilerplate)
+- The ability to insert ourselves into the _END_ of every query fetch process, as a _synchronous_ process.
+- Other minor things:
+  - Have some method for filtering mutations and queries by endpoint (for example, TRPC has `path` and react-query has `queryKey`, `mutationKey`)
+  - Have some method for converting queries and mutations to something usable as a map key (usually there's some hash or id property)
+
+### Cache Issues
+
+It's mentioned that we have two client caches, pre-transform and one post-transform. That's logically true but there are some implmenetation details. Basically, the query library already has its own cache, and most of the time there are for a given query exactly 0 active injections, meaning that if there were two caches the values would be identical. So, we use the query library's cache to effectively represent the post-transform (that's what the UI is driven off of anyway so it's convinient). The pre-transform cache is handled by the engine and will only exist if there is at least one active injection.
+
+To be extra explicit about state and cache management, at any point in time for any given query the following will be true. (This means the memory footprint of the optimistic update engine should be small; and stable over time):
+
+- There may or may not be a data entry in the query library post-transform cache (i.e. it may have expired)
+  - IF AND ONLY IF there is a data entry in the query library post-transform cache:
+    - There will be a list of matching injections and associated transform functions in the optimistic engine
+      - IF AND ONLY IF the list of matching injections has at least 1 element:
+        - There will be a data pre-transform cache entry in the optimistic update engine
+
+<!-- # Alternatives
+
+TODO edit/rewrite
 There are a couple possible solutions to #1 that are not nearly as invasive or complex as what I've done here, so lets talk about those alternatives:
 
 - Write a custom hook (e.g. `useUpdateTodo`) that encapsulates everything about the mutation: the parameters of the mutation, the endpoint to call, the mutation key (if any), cache/retry parameters (if any). This can of course include event handlers like `onMutate`, `onError`, `onSuccess`, and `onSettled`, which means you can implement the above logic in a central place.
@@ -87,180 +281,4 @@ There are a couple possible solutions to #1 that are not nearly as invasive or c
     })
     ```
 
-  - The fact that the interface is basically identical to the `useMutation` options is also of incredible practical value, in terms of being able to really quickly port code from global options for everywhere in your application this is used, to an ad-hoc basis, or vice versa.
-
-### My idea
-
-I ended up writing a few wrapper methods for this problem myself. Throughout the process I noticed that a core important concept is immutable updates, specifically functions with signatures kind like `(data: Immutable<T>) => Immutable<T>`. This makes sense, in order to update a value inline (and invisibly) to a component expecting a certain data shape from the server, you can't swap out the signature and expect things to still work. And immutability comes from the fact that immutability is widely used for change control / rerender triggers in UI frameworks. So my idea was, if the optimistic update logic needs to know how to provide an immutable data map functiona nyway, why not use that as the core abstraction? What if every mutation knew which query (or queries) it should optimistically update, and knew how to provide an immutable function to do so? Then each query could maintain a cache of not only the latest value, but **two latest values, one direct from the server, and one altered**. The altered value can be updated locally whenever an immutable mapper gets added to or removed from the list, and the cache of the server doesn't need to change until a full `invalidate`. This is how that logic looks below:
-
-```
-queryClient = new InjectableQueryClient();
-  // This is a subclass of QueryClient with some extra functionality.
-  // It has a helper method to watch mutation state (something you can do using the existing client)
-  // And it has helper methods to inject immutable data maps into the query flow as a fetch postprocess step
-    // ^ (something I had to alter prototypes and user Proxys to do and it's very hacky.  It's a proof of concept though)
-
-_attachOptimisticFunctionality(queryClient).optimisticData({
-  from: { mutationKey: ["addTodo"] },
-  to: (mutation) => ({ queryKey: ["todos"] }),
-    // the (mutation) => can help in situations where you are trying to update a query whose path has dynamic components.  Doesn't matter here.
-  inject: () => (valueFromServer, mutationState) => {
-    // Don't stop injection until the mutation is complete AND we the value in the latest value.
-    // This handles race conditions if a query is in flight while the mutation completes.  Since
-    // there is no way to know from the timing alone whether the query includes the mutation value,
-    // we have to leave it up to application concern
-    if (
-      mutationState.isSuccess &&
-      valueFromServer.find((x: any) => x.id === mutationState.data.id)
-    ) {
-      return stopInjection;
-    } else {
-      // Optimistically update to the new value
-      return [...valueFromServer, mutationState.data]
-    }
-  },
-  emptyDefaultIfMutationBeforeQuery: [], // ignore this for now.  This is a wart of the current design and I want to get rid of it.
-});
-```
-
-In my opinion, this is about as close to minimal you can make the interface. You can layer as many injections on top of each other as you need, if you need to have multiple queries affected by the same mutation, or multiple mutations affecting the same query. You can organize or group those however makes sense for you in your application as long as you call all the injections when you create the query client. You need to speficy the appropriate query and mutation keys (really [any filters work](https://tanstack.com/query/latest/docs/framework/react/guides/filters)) and the logic for an immutable data mapper, and the framework handles the rest:
-
-- Maintaining two cached versions of the data, the altered data to be provided to the client, and the unaltered one from the server
-  - (the second cache is actually empty most of the time until a mutation fires and there is an active data injection, since if there are no data mappers applying to a query (as in 99% of the time) then there is no reason to have two copies of the data. I did this as a garbage collection optimization, not sure if it actually matters though)
-- Applying the changes to the query cache when the mutation fires up for the first time
-- Cancelling the changes if the mutation errors
-- Causing a full refresh of the query when the mutation succeeds
-  - Maintaining the optimistic data injection until the real value comes back, although detection of "when the real value comes back" is left up to the application.
-
-#### Race conditions
-
-My approach is not a one-to-one map with the previously described logic in event handlers (`onMutate`, `onError`, `onSettled`). But I think my logic is actually better? (I'm far from sure) The pattern of having immutable data mappers means that we handle scenarios correctly that the previous logic might not. These are admittedly edge cases and may or may not even be possible depending on the exact UI.
-
-- The `onMutate` handler above would do a `cancelQueries` call to not have in flight queries clobber over existing data. This is not a problem for us since if a mutation goes out and adds an immutable mapper while a fetch is in flight, then when the fetch comes back it will go throuigh that immutable mapper.
-- The scenario where a mutation is fired and THEN a query is fired but the query comes back before the mutation, that (AFAIK) isn't handled properly by the above `onMutate` handler since it only cancels current queries, doesn't block any. Again this isn't an issue for us since we're basically applying a postprocess mapper at the end of fetchs that come in. And since it's all non-async code and JS is single threaded, there's no race conditions there
-- If two mutates fire and then the first one fails but the second goes through, this framework will continue to manage the optimistic injection of the second mutation independently from the first. In the `onMutate` handler, since the context is just storing a backup of the previous state, this will not work correctly.
-
-### Two solutions
-
-I started out trying to solve problem #1 (the colocation of UI concerns and optimistic cache concerns). I ended up kind of accidentally stumbling into problem #2 and a solution for it (the fact that the existing mutation-event-handler approach is not robust enough in all situations). And I think both of my solutions have merit, but I do actually think #2 might be more important than #1. Fortunately, these ideas aren't explicitly tied together. Well I mean they are here, but that's just because I've got a library that handles both solutions at once. It could easily be split into one that handles one, or the other.
-
-For Problem/Solution #1, I'll admit I didn't know about `setMutationDefaults` until I was already deep into making my framework. And maybe if I had known about it, I wouldn't have gone down this path. It's a pretty good option, and this seems like the use case it was designed for. This is a failure of my reading the docs. I didn't see it on the "optimistic updates" page, and while there some references to it elsewhere, the closes thing I could find was [this block of code](https://tanstack.com/query/latest/docs/framework/react/guides/mutations#persist-mutations) related to mutation persisting which is not the same thing. The only reason I even found that was because after I found the `setMutationDefaults` function in the detailed QueryClient function list, I searched back through the main docs to see if there was something I had missed. Maybe there should be a reference to this on the optimistic updates page directly?
-
-For Problem/Solution #2, I think my approach is inherently novel. I don't particularly like the details of how I've hooked into the query resolution process (I'm basically intercepting the data _just_ before it goes into the cache in [Query.setData](https://github.com/TanStack/query/blob/2496ba51bb8e10c45f15a9ab9258d53c709dc051/packages/query-core/src/query.ts#L215)) -- but I think the core of the idea is solid. There are probably better ways to do this -- potentially by having some wrapper around putting a `.then(v => applyImmutableMappers(v))` postProcess to `queryFn`s, or something like that. But I think that there should be some common library for handling optimistic updates in this manner
-
-# How does my solution actually work (under the hood)??
-
-as mentioned before, I have a subclass of `QueryClient`:
-
-```
-queryClient = new InjectableQueryClient();
-```
-
-It provides two extra primitives. You can use one to watch for any mutation updates globally:
-
-```
-const watcher = queryClient.watchMutationEvents(
-  { mutationKey: ["addTodo"] },
-  (mutation) => ({
-    // gets called whenever a mutation is seen for the first time.
-    // You can use this closure to contain any state you need to manage per-mutation
-    onChange(mutationState) {
-      // mutationState is the same data shape as you get from `useMutation`
-    },
-  })
-);
-watcher.unsucscribe(); // to stop watching
-```
-
-It turns out I didn't actually **NEED** to make a subclass or sneakily modify any prototype chains in order to implement this functionality. I didn't realize that until later. But you absolutely do need to modify the prototype chain to implement the following (again, since transformData is called just before values are inserted into the query cache)):
-
-```
-const injection = queryClient.injectQueryData(
-  { queryKey: ["todos"] },
-  (query) => ({
-    // gets called whenever a query is seen for the first time.
-    // You can use this closure to contain any state you need to manage per-query
-    transformData(todos) {
-      return /* some modification of todos*/;
-      /* or, if/when you want to stop, return the `stopInjection` token */
-    },
-  })
-);
-injection.unsubscribe();
-```
-
-These are remarkably similar primitives, and these are the only bits of extra functionality on `InjectableQueryClient`. They both have a way of [filtering](https://tanstack.com/query/latest/docs/framework/react/guides/filters), they both have a way of creating a new scope whenever an item (query or mutation) matches, and they both have lifecycle events for unsubscribe. Because of this, you can write a function that watches for mutations, and the _for every mutation that happens_, creates a separate watch for queries, and ties together the lifecycles of all those properly. Which is kind of a pain, but it's all done for you by the following
-
-(I put it on a separate object since I didn't want to pollute the interface of `InjectableQueryClient`. I also made a factory pattern around it (not shown here) -- not sure if that was a good idea or not but whatever, it's not the point):
-
-```
-_attachOptimisticFunctionality(queryClient).optimisticData({
-  from: { mutationKey: ["addTodo"] },
-  to: (mutation) => ({ queryKey: ["todos"] }),
-  inject: (mutation) => (todos, mutationState) => {
-    // This function is scoped to a specific matching query, and a specific matching mutation
-    // Determine whether to stop the injection by returning stopInjection as before,
-    // or return an immutable alteration of valueFromServer
-  },
-  emptyDefaultIfMutationBeforeQuery: [], // don't worry about this for now.  This is a wart of the current design and I want to get rid of it.
-});
-```
-
-There's also some potential here for helper methods for very common operations. For example, in my example app I have helper methods for dealing with mutations that add or remove items from an array returned by a query. This is also using TRPC, so the structure of the arguments is slightly different (for type inference reasons)
-
-```
-const client = createOptimisticTRPCClient<AppRouter>((builder, trpc) => {
-  let autoDec = 1;
-  builder.optimisticArrayRemove(
-    {
-      from: trpc.threads.delete,
-      to: trpc.threads.all,
-      // These TRPC endpoints provide both the query and mutation keys,
-      // as well as type inference for the below callbacks / parameters
-    },
-    {
-      matchValue(input, fromServer) {
-        // all you really need for removing from an array is a match predicate.
-        // it infers when to stopInjection by whether the element was present in the list
-        return input.id == fromServer.id;
-      },
-    }
-  );
-
-  builder.optimisticArrayInsert(
-    {
-      from: trpc.posts.create,
-      to: trpc.posts.allInThread,
-      // These TRPC endpoints provide both the query and mutation keys,
-      // as well as type inference for the below callbacks / parameters
-    },
-    {
-      fakeValue: (input) => ({ ...input, id: autoDec-- }),
-        // generate a fake value to insert.  The id used to match the shape is
-        // fake because we don't have a real one yet.  It's negative and unique
-        // so it won't collide with real ids.  (generated once per mutation invocation)
-      matchValue(input, fromServer, mutationResult) {
-        return (mutationResult.data?.id === fromServer.id);
-          // on exact ID matches, we know the element has been successfully mutated AND
-          // successfully returned by the query.  We can safely stopInjection
-      },
-    }
-})
-
-```
-
-# Playing around
-
-```bash
-npm i
-npm run dev
-```
-
-Try editing the ts files to see the type checking in action :)
-
-### Building
-
-```bash
-npm run build
-npm run start
-```
+  - The fact that the interface is basically identical to the `useMutation` options is also of incredible practical value, in terms of being able to really quickly port code from global options for everywhere in your application this is used, to an ad-hoc basis, or vice versa. -->

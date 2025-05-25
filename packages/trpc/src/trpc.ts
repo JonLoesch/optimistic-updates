@@ -15,6 +15,7 @@ import {
   defaultResultState,
   type _WatchMutationResultFunc
 } from "@optimistic-updates/core";
+export { stopInjection } from "@optimistic-updates/core";
 import { type ObservedValueOf, Subject } from "rxjs";
 
 interface TRPCTypeProxy {
