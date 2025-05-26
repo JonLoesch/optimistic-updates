@@ -1,0 +1,14 @@
+{
+  "tabWidth": 2,
+  "printWidth": 120,
+  "trailingComma": "es5",
+  "useTabs": false,
+  "overrides": [
+    {
+      "files": "signatureBoilerplate.ts",
+      "options": {
+        "printWidth": 200
+      }
+    }
+  ]
+}

@@ -1,24 +1,10 @@
 /* eslint-disable prefer-const */
 import { Observable, ObservedValueOf, Observer, Subject } from "rxjs";
-import {
-  _WatchMutationResultFunc,
-  createAbstractOptimisticModel,
-  defaultResultState,
-  ResultOf,
-  stopInjection
-} from "./core";
+import { optimisticEngineCore, stopInjection } from "./core";
+import type { Engine as TestEngine } from "./test/signatureBoilerplate";
+import type { G, SpecificDef } from "./test/g";
 
 describe("createAbstractOptimisticModel", () => {
-  type G = {
-    Query: { fakeQuery: string };
-    QueryHash: string;
-    QueryLocator: { prefix: string };
-    MutationLocator: { prefix: string };
-    MutationInput: { m_input: string };
-    MutationOutput: { m_output: string };
-    QueryResult: string[];
-  };
-
   it("should be able to pass through values", () => {
     const e = testEngine();
     expect(e.hooks.wrapValue(["value"], { fakeQuery: "" })).toEqual(["value"]);
@@ -32,13 +18,13 @@ describe("createAbstractOptimisticModel", () => {
     const m = simulateMutation(e, { m_input: "params" });
     expect(e.hooks.wrapValue(["value"], { fakeQuery: "" })).toEqual([
       "value",
-      "status: pending input: params, output: "
+      "status: pending input: params, output: ",
     ]);
 
     m.simulateSuccess({ m_output: "result" });
     expect(e.hooks.wrapValue(["value"], { fakeQuery: "" })).toEqual([
       "value",
-      "status: success input: params, output: result"
+      "status: success input: params, output: result",
     ]);
   });
 
@@ -46,16 +32,12 @@ describe("createAbstractOptimisticModel", () => {
     const e = testEngine();
     basicPostprocess(e);
 
-    let mockServerValue: G["QueryResult"] = ["value"];
-    const latestValue = () =>
-      e.hooks.wrapValue(mockServerValue, { fakeQuery: "" });
+    let mockServerValue: G["QueryOutput"] = ["value"];
+    const latestValue = () => e.hooks.wrapValue(mockServerValue, { fakeQuery: "" });
     expect(latestValue()).toEqual(["value"]);
 
     const m = simulateMutation(e, { m_input: "params" });
-    expect(latestValue()).toEqual([
-      "value",
-      "status: pending input: params, output: "
-    ]);
+    expect(latestValue()).toEqual(["value", "status: pending input: params, output: "]);
 
     m.simulateFailure();
     expect(latestValue()).toEqual(["value"]);
@@ -65,9 +47,8 @@ describe("createAbstractOptimisticModel", () => {
     const e = testEngine();
     optimisticArrayInsert(e);
 
-    let mockServerValue: G["QueryResult"] = ["value"];
-    const latestValue = () =>
-      e.hooks.wrapValue(mockServerValue, { fakeQuery: "" });
+    let mockServerValue: G["QueryOutput"] = ["value"];
+    const latestValue = () => e.hooks.wrapValue(mockServerValue, { fakeQuery: "" });
     expect(latestValue()).toEqual(["value"]);
 
     const m = simulateMutation(e, { m_input: "params" });
@@ -75,11 +56,7 @@ describe("createAbstractOptimisticModel", () => {
     expect(latestValue()).toEqual(["value", "OPTIMISTIC:ID:1:params"]); // again to make sure it doesn't increment
 
     simulateMutation(e, { m_input: "params" });
-    expect(latestValue()).toEqual([
-      "value",
-      "OPTIMISTIC:ID:1:params",
-      "OPTIMISTIC:ID:2:params"
-    ]);
+    expect(latestValue()).toEqual(["value", "OPTIMISTIC:ID:1:params", "OPTIMISTIC:ID:2:params"]);
 
     m.simulateFailure();
     expect(latestValue()).toEqual(["value", "OPTIMISTIC:ID:2:params"]);
@@ -89,9 +66,8 @@ describe("createAbstractOptimisticModel", () => {
     const e = testEngine();
     optimisticArrayInsert(e);
 
-    let mockServerValue: G["QueryResult"] = ["value"];
-    const latestValue = () =>
-      e.hooks.wrapValue(mockServerValue, { fakeQuery: "" });
+    let mockServerValue: G["QueryOutput"] = ["value"];
+    const latestValue = () => e.hooks.wrapValue(mockServerValue, { fakeQuery: "" });
     expect(latestValue()).toEqual(["value"]);
 
     const m = simulateMutation(e, { m_input: "params" });
@@ -112,9 +88,8 @@ describe("createAbstractOptimisticModel", () => {
     const e = testEngine();
     optimisticArrayInsert(e);
 
-    let mockServerValue: G["QueryResult"] = ["value"];
-    const latestValue = () =>
-      e.hooks.wrapValue(mockServerValue, { fakeQuery: "" });
+    let mockServerValue: G["QueryOutput"] = ["value"];
+    const latestValue = () => e.hooks.wrapValue(mockServerValue, { fakeQuery: "" });
     expect(latestValue()).toEqual(["value"]);
 
     const m = simulateMutation(e, { m_input: "newValue" });
@@ -137,7 +112,6 @@ describe("createAbstractOptimisticModel", () => {
     mockServerValue = ["value"];
     expect(latestValue()).toEqual(["value"]);
   });
-
   // --------------------------------------------------------- //
   // --------------------------------------------------------- //
   // --------------------------------------------------------- //
@@ -146,112 +120,94 @@ describe("createAbstractOptimisticModel", () => {
   // --------------------------------------------------------- //
   // --------------------------------------------------------- //
 
+  function to<Input = undefined, Output = G["QueryOutput"]>(
+    prefix: string
+  ): G<SpecificDef<unknown, unknown, unknown, Input, unknown, Output>>["QueryLocator"] {
+    return {
+      prefix,
+      "~~input": undefined as Input,
+      "~~output": undefined as Output,
+    };
+  }
+  function from<Input = { m_input: string }, Output = { m_output: string }>(
+    prefix: string
+  ): G<SpecificDef<Input, unknown, Output, unknown, unknown, unknown>>["MutationLocator"] {
+    return {
+      prefix,
+      "~~input": undefined as Input,
+      "~~output": undefined as Output,
+    };
+  }
+
   function testEngine() {
     const triggerRefetch = jest.fn<undefined, [G["QueryLocator"]]>();
-    const updateCache = jest.fn<
-      undefined,
-      [G["QueryLocator"], <T>(data: T, qh: G["Query"]) => T]
-    >();
+    const updateCache = jest.fn<undefined, [G["QueryLocator"], <T>(data: T, qh: G["Query"]) => T]>();
     const mutations$ = new Subject<{
       input: G["MutationInput"];
       isMatch: (ml: G["MutationLocator"]) => boolean;
       data$: Observable<G["MutationOutput"]>;
     }>();
+    const queryCacheExpirations$ = new Subject<G["QueryHash"]>();
 
-    const { model, hooks } = createAbstractOptimisticModel<G>({
+    const { engine, hooks } = optimisticEngineCore<G>({
       hashQuery: (q) => q.fakeQuery,
+      queryInput: (q) => q.fakeQuery,
       matchQuery: (l, q) => q.fakeQuery.startsWith(l.prefix),
       triggerRefetch,
       updateCache,
-      mutations$
+      mutations$,
+      queryCacheExpirations$,
     });
 
     return {
-      model: {
-        ...model,
-        _watchMutation<
-          F extends _WatchMutationResultFunc<
-            G["MutationInput"],
-            G["MutationOutput"]
-          >
-        >(ml: G["MutationLocator"], fn: F) {
-          return model.watchMutation(
-            ml,
-            defaultResultState<G["MutationInput"], G["MutationOutput"], F>(fn)
-          );
-        }
-      },
+      engine: engine as TestEngine,
       hooks: {
         ...hooks,
-        wrapValue: hooks.wrapValue<string[]>
+        wrapValue: hooks.wrapValue<string[]>,
       },
       mocks: {
         triggerRefetch,
         updateCache,
-        mutations$: mutations$ as Observer<ObservedValueOf<typeof mutations$>>
-      }
+        mutations$: mutations$ as Observer<ObservedValueOf<typeof mutations$>>,
+      },
     };
   }
 
-  function basicPostprocess(
-    e: ReturnType<typeof testEngine>,
-    options?: Partial<{
-      queryPrefix: string;
-      mutationPrefix: string;
-      inject: (
-        value: string[],
-        mutationState: ResultOf<
-          G["MutationInput"],
-          G["MutationOutput"],
-          undefined
-        >
-      ) => string[] | typeof stopInjection;
-    }>
-  ) {
-    e.model.postprocessQuery(
-      { prefix: options?.queryPrefix ?? "" },
-      e.model._watchMutation(
-        { prefix: options?.mutationPrefix ?? "" },
-        undefined
-      ),
-      options?.inject ??
-        ((value: string[], mutationState) => {
-          return [
-            ...value,
-            `status: ${mutationState.status} input: ${mutationState.input.m_input}, output: ${mutationState.data?.m_output ?? ""}`
-          ];
-        })
-    );
+  function basicPostprocess(e: ReturnType<typeof testEngine>) {
+    e.engine.inject({
+      from: from(""),
+      to: to(""),
+      transform(value, mutationState) {
+        return [
+          ...value,
+          `status: ${mutationState.status} input: ${mutationState.input.m_input}, output: ${mutationState.data?.m_output ?? ""}`,
+        ];
+      },
+    });
   }
 
   function optimisticArrayInsert(e: ReturnType<typeof testEngine>) {
     let inc = 1;
-    e.model.postprocessQuery(
-      { prefix: "" },
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      e.model._watchMutation({ prefix: "" }, () => ({ fakeId: `ID:${inc++}` })),
-      (valuesFromServer: G["QueryResult"], mutationState) => {
+    e.engine.inject({
+      from: from(""),
+      to: to(""),
+      context: () => ({ fakeId: `ID:${inc++}` }),
+      transform: (valuesFromServer: G["QueryOutput"], mutationState) => {
         if (mutationState.status === "success") {
           if (valuesFromServer.includes(mutationState.data.m_output)) {
             return stopInjection;
           } else {
-            return [
-              ...valuesFromServer,
-              `OPTIMISTIC:${mutationState.context.fakeId}:${mutationState.data.m_output}`
-            ];
+            return [...valuesFromServer, `OPTIMISTIC:${mutationState.context.fakeId}:${mutationState.data.m_output}`];
           }
         } else {
           if (valuesFromServer.includes(mutationState.input.m_input)) {
             return valuesFromServer;
           } else {
-            return [
-              ...valuesFromServer,
-              `OPTIMISTIC:${mutationState.context.fakeId}:${mutationState.input.m_input}`
-            ];
+            return [...valuesFromServer, `OPTIMISTIC:${mutationState.context.fakeId}:${mutationState.input.m_input}`];
           }
         }
-      }
-    );
+      },
+    });
   }
 
   function simulateMutation(
@@ -269,7 +225,7 @@ describe("createAbstractOptimisticModel", () => {
     e.mocks.mutations$.next({
       data$,
       input: { m_input: "", ...options },
-      isMatch: ({ prefix }) => (options?.mutationKey ?? "").startsWith(prefix)
+      isMatch: ({ prefix }) => (options?.mutationKey ?? "").startsWith(prefix),
     });
 
     return {
@@ -279,7 +235,7 @@ describe("createAbstractOptimisticModel", () => {
       },
       simulateFailure() {
         data$.error(new Error());
-      }
+      },
     };
   }
 });

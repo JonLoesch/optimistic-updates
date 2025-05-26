@@ -1,11 +1,7 @@
 #### List of TODOs
 
-- rename to engine
-- adjust signatures to match examples
-  - `.inject(...)`
-  - `.watchMutation()` => `injectWatch` should be alternate, not default
-  - have explcit `{from, to, transform}`??
 - Fix github build
+- Triple check TRPC example
 - Publish
 
 #### Later:

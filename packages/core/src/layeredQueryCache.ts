@@ -1,20 +1,16 @@
 import type { Unsubscribable } from "rxjs";
 import { getOrCreate } from "./getOrCreate";
-import type { OptimisticUpdateGenericParameters } from "./types";
+import type { OptimisticUpdateGenericParameters } from "./core";
 
 export const noMatch = Symbol("noMatch");
 
 export class LayeredQueryCache<G extends OptimisticUpdateGenericParameters, T> {
   #layers = new SubList<CacheLayer<G["QueryHash"], G["Query"], T>>();
 
-  *getOrCreate(
-    hash: G["QueryHash"],
-    params: G["Query"]
-  ): Iterable<[T, Unsubscribable]> {
+  *getOrCreate(hash: G["QueryHash"], params: G["Query"]): Iterable<[T, Unsubscribable]> {
     for (const l of this.#layers) {
       const match = l.getOrCreate(hash, params);
-      if (match !== noMatch)
-        yield [match, { unsubscribe: () => l.delete(hash) }];
+      if (match !== noMatch) yield [match, { unsubscribe: () => l.delete(hash) }];
     }
   }
 
@@ -24,11 +20,7 @@ export class LayeredQueryCache<G extends OptimisticUpdateGenericParameters, T> {
     }
   }
 
-  add(
-    create: (
-      subscription: Unsubscribable
-    ) => CacheLayer<G["QueryHash"], G["Query"], T>
-  ): Unsubscribable {
+  add(create: (subscription: Unsubscribable) => CacheLayer<G["QueryHash"], G["Query"], T>): Unsubscribable {
     return this.#layers.add(create);
   }
 
@@ -50,7 +42,7 @@ class SubList<T> implements Iterable<T> {
     const s = {
       unsubscribe: () => {
         this.#all.delete(index);
-      }
+      },
     };
     this.#all.set(index, fn(s));
     return s;

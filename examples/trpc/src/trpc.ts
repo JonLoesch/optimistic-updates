@@ -7,15 +7,15 @@ import { createOptimisticTRPCModel } from "@optimistic-updates/trpc";
 
 export const queryClient = new QueryClient();
 
-const { model, link } = createOptimisticTRPCModel(queryClient);
+const { engine, link } = createOptimisticTRPCModel(queryClient);
 
 const trpcClient = createTRPCClient<AppRouter>({
-  links: [link, loggerLink(), httpBatchLink({ url: "http://localhost:3033" })]
+  links: [link, loggerLink(), httpBatchLink({ url: "http://localhost:3033" })],
 });
 
 export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: trpcClient,
-  queryClient
+  queryClient,
 });
 
-addOptimisticUpdates(model, trpc);
+addOptimisticUpdates(engine, trpc);

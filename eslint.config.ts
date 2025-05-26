@@ -9,7 +9,7 @@ export default tseslint.config(
       eslint.configs.recommended,
       tseslint.configs.recommendedTypeChecked,
       tseslint.configs.stylisticTypeChecked,
-      tseslint.configs.strictTypeChecked
+      tseslint.configs.strictTypeChecked,
     ],
     rules: {
       "@typescript-eslint/no-unused-vars": [
@@ -21,8 +21,14 @@ export default tseslint.config(
           caughtErrorsIgnorePattern: "^_",
           destructuredArrayIgnorePattern: "^_",
           varsIgnorePattern: "^_",
-          ignoreRestSiblings: true
-        }
+          ignoreRestSiblings: true,
+        },
+      ],
+      "@typescript-eslint/restrict-template-expressions": [
+        "error",
+        {
+          allowNumber: true,
+        },
       ],
       "@typescript-eslint/no-non-null-assertion": "warn",
       "@typescript-eslint/no-empty-function": "warn",
@@ -36,28 +42,20 @@ export default tseslint.config(
       "@typescript-eslint/no-empty-object-type": "warn",
       "@typescript-eslint/no-unnecessary-condition": "warn",
       "no-unused-private-class-members": "warn",
-      "@typescript-eslint/no-extraneous-class": "warn"
+      "@typescript-eslint/no-extraneous-class": "warn",
     },
     languageOptions: {
       sourceType: "module",
       globals: {
-        module: "writable"
+        module: "writable",
       },
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: import.meta.dirname
-      }
-    }
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
   },
   {
-    ignores: [
-      ...[
-        ".pnpm-store",
-        "pnpm-lock.yaml",
-        "**/node_modules/*",
-        "**/dist/*",
-        "**/.*"
-      ]
-    ]
+    ignores: [...[".pnpm-store", "pnpm-lock.yaml", "**/node_modules/*", "**/dist/*", "**/.*"]],
   }
 ) as ConfigArray;
