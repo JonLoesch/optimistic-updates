@@ -31,7 +31,8 @@
     "format:fix": "prettier --write .",
     "test": "turbo run --parallel test",
     "typecheck": "turbo run --parallel typecheck",
-    "prepare": "husky"
+    "prepare": "husky",
+    "example:trpc": "pnpm turbo run dev --filter example-optimistic-updates-server --filter example-optimistic-updates-trpc-client"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",

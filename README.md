@@ -100,7 +100,7 @@ This library is an attempt to help application developers effectively deal with 
 
 There are a few opinions and design philosophies in this library. You may disagree with them, but we'll state the rationale up front so you can decide if this library is right for you.
 
-TODO link to alts
+<!-- TODO link to alts -->
 
 <details>
 <summary>Note about example and TRPC</summary>
@@ -206,7 +206,7 @@ This is the core statement of the optimistic update engine: **Whenever a mutatio
 
 In this psuedocode: after calling `inject` once on application initialization, all active mutations against the `trpc.threads.create` endpoint will affect all queries on the `trpc.threads.all` endpoint, regardless of what order they happen in. For a more real code example and not psuedocode, see [this example](examples/trpc/src/optimistic-updates.ts)
 
-<!-- TODO link to StackBlitz -->
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/JonLoesch/optimistic-updates?file=examples%2Ftrpc%2Fsrc%2FApp.tsx&startScript=example:trpc)
 
 ```
 engine.inject(
@@ -220,7 +220,7 @@ engine.inject(
 
 # How does it actually work (under the hood)??
 
-DISCLAIMER: It should be noted that this library is still at version `0.0.0` in prerelease under active development. It does actually work, I've got some examples<!-- TODO link to StackBlitz --> to prove it, and some Jest test cases as well. But the polish isn't quite there yet, and some of the code examples written in this doc are not-quite-right. (In many cases though the code in the doc is how I _want_ things to work it's just not quite there yet).
+DISCLAIMER: It should be noted that this library is still at version `0.0.0` in prerelease under active development. It does actually work, I've got some examples ([![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/JonLoesch/optimistic-updates?file=examples%2Ftrpc%2Fsrc%2FApp.tsx&startScript=example:trpc)) to prove it, and some Jest test cases as well. But the polish isn't quite there yet, and some of the code examples written in this doc are not-quite-right. (In many cases though the code in the doc is how I _want_ things to work it's just not quite there yet).
 
 The core of the library is immutable transofmation functions ([opinion #2](#opinion-2---optimistic-updates-should-be-described-in-terms-of-immutable-transformations)) and two caches, one for the unaltered value and one for the altered value. This is what a basic optimistic workflow looks like under architecture
 
