@@ -110,10 +110,10 @@ export function optimisticEngineCore<G extends OptimisticUpdateGenericParameters
       })
     );
   }
-  function postprocessQuery<Data, Result>(
+  function postprocessQuery<Data, Result, QueryInput>(
     ql: G["QueryLocator"],
     mutationWatch: MutationWatch<Result>,
-    transform: (value: Data, mutationState: Result, query: G["Query"]) => Data | typeof stopInjection
+    transform: (value: Data, mutationState: Result, queryInput: QueryInput) => Data | typeof stopInjection
   ) {
     mutationWatch.subscribe({
       next(mutation$) {
@@ -127,7 +127,7 @@ export function optimisticEngineCore<G extends OptimisticUpdateGenericParameters
                 if (impl.matchQuery(ql, q)) {
                   return generic((data: Data) =>
                     "result" in latestValue
-                      ? transform(data, latestValue.result, q)
+                      ? transform(data, latestValue.result, impl.queryInput(q) as QueryInput)
                       : latestValue.status === "error"
                         ? stopInjection
                         : data

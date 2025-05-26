@@ -1,8 +1,12 @@
 import { AppRouter } from "../../server";
 import { TRPCOptionsProxy } from "@trpc/tanstack-react-query";
-import { OptimisticUpdateTRPCModel, stopInjection } from "@optimistic-updates/trpc";
+import { type OptimisticUpdateTRPCModel, stopInjection } from "@optimistic-updates/trpc";
 
 let autoDec = -1; // make all optimistic IDs negative so we can tell them apart from real IDs at a glance
+
+// Below is all the code required to make 4 mutations and 2 queries fully optimistic.
+// This acts as a transparent layer -- the sample App code (in App.tsx) is very dumb and has no knowledge of this,
+// but the App still recieves updates and refetches as necessary
 
 export function addOptimisticUpdates(engine: OptimisticUpdateTRPCModel, trpc: TRPCOptionsProxy<AppRouter>) {
   engine.inject({
@@ -24,6 +28,30 @@ export function addOptimisticUpdates(engine: OptimisticUpdateTRPCModel, trpc: TR
   engine.inject({
     from: trpc.threads.delete,
     to: trpc.threads.all,
+    transform(value, mutationState) {
+      if (!value.find((x) => x.id === mutationState.input.id)) {
+        return stopInjection;
+      }
+      return value.filter((x) => x.id !== mutationState.input.id);
+    },
+  });
+
+  engine.inject({
+    from: trpc.posts.create,
+    context: (input) => ({ ...input, id: autoDec-- }),
+    to: trpc.posts.allInThread,
+    transform(value, mutationState, queryInput) {
+      console.log({ value, mutationState, queryInput });
+      if (queryInput.threadId !== mutationState.input.threadId) return stopInjection;
+      if (mutationState.status === "success" && value.find((x) => x.id === mutationState.data.id)) return stopInjection;
+      if (value.find((x) => x.content === mutationState.input.content)) return value;
+      return [...value, mutationState.context];
+    },
+  });
+
+  engine.inject({
+    from: trpc.posts.delete,
+    to: trpc.posts.allInThread,
     transform(value, mutationState) {
       if (!value.find((x) => x.id === mutationState.input.id)) {
         return stopInjection;

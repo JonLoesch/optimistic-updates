@@ -25,7 +25,8 @@ export function optimisticEngineTRPC<Router extends AnyTRPCRouter>(queryClient: 
     },
     updateCache: (ql, updater) => {
       for (const query of queryClient.getQueryCache().findAll({ queryKey: ql.queryKey() })) {
-        const input = {}; // TODO this is wrong
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        const input = (query.queryKey[1] as any).input;
         queryClient.setQueryData(query.queryKey, (data: unknown) => {
           return updater(data, { path: query.queryKey[0] as string[], input });
         });

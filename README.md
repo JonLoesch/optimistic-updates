@@ -19,6 +19,8 @@ So, first up: This idea is not yet fully baked and has many problems in the impl
 
 That said I _believe_ most of the problems here are due to "I haven't done that yet", not due to any sort of structural impossibility. It's still under active development and I'm soliciting feedback. Please let me know if you have any interest or comments or anything!
 
+You can see a basic example of it it actually working. [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/JonLoesch/optimistic-updates?file=examples%2Ftrpc%2Fsrc%2Foptimistic-updates.ts&startScript=example:stackblitz:trpc) (or see the example code in github [here](examples/trpc/src/optimistic-updates.ts))
+
 # The problem statement - A brief primer on optimistic updates
 
 Optimistic updates are the idea of having the UI update before it recieves final confirmation from the server. Lets use an example of a `threads.all` endpoint for displaying threads, and a `threads.create` endpoint for adding a new one. This is what it may look like for the UI to update after a thread is added:
@@ -206,7 +208,7 @@ This is the core statement of the optimistic update engine: **Whenever a mutatio
 
 In this psuedocode: after calling `inject` once on application initialization, all active mutations against the `trpc.threads.create` endpoint will affect all queries on the `trpc.threads.all` endpoint, regardless of what order they happen in. For a more real code example and not psuedocode, see [this example](examples/trpc/src/optimistic-updates.ts)
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/JonLoesch/optimistic-updates?file=examples%2Ftrpc%2Fsrc%2FApp.tsx&startScript=example:trpc)
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/JonLoesch/optimistic-updates?file=examples%2Ftrpc%2Fsrc%2Foptimistic-updates.ts&startScript=example:stackblitz:trpc)
 
 ```
 engine.inject(

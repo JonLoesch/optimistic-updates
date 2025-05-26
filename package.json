@@ -22,7 +22,7 @@
   "scripts": {
     "build": "turbo run build",
     "build:clean": "turbo run clean:build",
-    "dev": "turbo watch typecheck build",
+    "dev": "bash -c 'pnpm turbo watch example-optimistic-updates-{server,trpc-client}#dev @optimistic-updates/{core,trpc}#build --ui tui'",
     "lint-format": "turbo run --parallel lint format ",
     "lint-format:fix": "turbo run --parallel lint:fix format:fix",
     "lint": "eslint --ignore-pattern packages/  --ignore-pattern examples/",
@@ -32,7 +32,7 @@
     "test": "turbo run --parallel test",
     "typecheck": "turbo run --parallel typecheck",
     "prepare": "husky",
-    "example:trpc": "pnpm turbo run dev --filter example-optimistic-updates-server --filter example-optimistic-updates-trpc-client"
+    "example:stackblitz:trpc": "pnpm --filter ./packages/core build && pnpm --filter ./packages/trpc build && pnpm --filter ./examples/server/ --filter ./examples/trpc/ --parallel run dev"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",
