@@ -1,47 +1,61 @@
-import {
-  OptimisticUpdateTanstackQueryModel,
-  stopInjection,
-  type InferWatchedType,
-} from "@optimistic-updates/tanstack-query";
-import { trpc } from "./utils/trpc";
+import { type OptimisticUpdateEngineTanstackQuery, stopInjection } from "@optimistic-updates/tanstack-query";
 
-export function addOptimisticUpdates(model: OptimisticUpdateTanstackQueryModel) {
+export function addOptimisticUpdates(engine: OptimisticUpdateEngineTanstackQuery) {
   let autoDec = -1;
-  const makeFakeId = () => ({
-    fakeId: autoDec--,
-  });
-  const additions = model.watchMutation<{ title: string }, { id: number }, typeof makeFakeId>(
-    {
-      mutationKey: trpc.threads.create.mutationKey(),
-    },
-    makeFakeId
+  const additions = engine.watch<{ title: string }, { id: number }, { fakeId: number }>(
+    { mutationKey: ["threads", "create"] },
+    () => ({ fakeId: autoDec-- })
   );
-  model.postprocessQuery<{ id: number; title: string }[], InferWatchedType<typeof additions>>(
-    { queryKey: trpc.threads.all.queryKey() },
-    additions,
-    (value, mutationState) => {
+
+  engine.inject({
+    watch: additions,
+    into: { queryKey: ["threads", "all"] },
+
+    transform: (value: { id: number; title: string }[], mutationState) => {
       if (mutationState.status === "success" && value.find((x) => x.id === mutationState.data.id)) {
         return stopInjection;
       }
       return [...value, { ...mutationState.input, id: mutationState.context.fakeId }];
-    }
-  );
-  const deletions = model.watchMutation<{ id: number }, "success", undefined>(
-    {
-      mutationKey: trpc.threads.delete.mutationKey(),
     },
-    undefined
-  );
-  model.postprocessQuery<{ id: number; title: string }[], InferWatchedType<typeof deletions>>(
-    { queryKey: trpc.threads.all.queryKey() },
-    deletions,
-    (value, mutationState) => {
+  });
+  engine.inject({
+    from: { mutationKey: ["threads", "delete"] },
+    into: { queryKey: ["threads", "all"] },
+    transform: (value: { id: number; title: string }[], mutationState: { input: { id: number } }) => {
       if (!value.find((x) => x.id === mutationState.input.id)) {
         return stopInjection;
       }
       return value.filter((x) => x.id !== mutationState.input.id);
-    }
-  );
+    },
+  });
+
+  engine.inject({
+    from: { mutationKey: ["posts", "create"] },
+    into: { queryKey: ["posts", "allInThread"] },
+    context: (input: { content: string; threadId: number }) => ({ ...input, id: autoDec-- }),
+    transform: (
+      value: { id: number; content: string }[],
+      mutationState,
+      queryInput: ["posts", "allInThread", number]
+    ) => {
+      if (queryInput[2] !== mutationState.input.threadId) return stopInjection;
+      if (mutationState.status === "success" && value.find((x) => x.id === (mutationState.data as { id: number }).id))
+        return stopInjection;
+      if (value.find((x) => x.content === mutationState.input.content)) return value;
+      return [...value, mutationState.context];
+    },
+  });
+
+  engine.inject({
+    from: { mutationKey: ["posts", "delete"] },
+    into: { queryKey: ["posts", "allInThread"] },
+    transform: (value: { id: number; content: string }[], mutationState: { input: { id: number } }) => {
+      if (!value.find((x) => x.id === mutationState.input.id)) {
+        return stopInjection;
+      }
+      return value.filter((x) => x.id !== mutationState.input.id);
+    },
+  });
   //   let autoDec = -1;
   //   builder.optimisticArrayInsert(
   //     {

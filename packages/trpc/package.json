@@ -2,10 +2,10 @@
   "name": "@optimistic-updates/trpc",
   "version": "0.0.0",
   "description": "",
-  "main": "src/trpc.ts",
+  "main": "src/index.ts",
   "publishConfig": {
-    "main": "dist/trpc.js",
-    "typings": "dist/trpc.d.ts"
+    "main": "dist/index.js",
+    "typings": "dist/index.d.ts"
   },
   "files": [
     "dist"

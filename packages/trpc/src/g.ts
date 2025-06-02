@@ -1,9 +1,6 @@
 import type { AnyDef } from "@optimistic-updates/core";
-export type { AnyDef } from "@optimistic-updates/core";
-export type { MutationWatch } from "@optimistic-updates/core";
+export type { AnyDef, MutationWatch, MutationState, stopInjection, SpecificDef } from "@optimistic-updates/core";
 import type { TRPCMutationKey, TRPCQueryKey } from "@trpc/tanstack-react-query";
-
-export type { MutationState, stopInjection, SpecificDef } from "@optimistic-updates/core";
 
 export type G<Def extends AnyDef = AnyDef> = {
   Query: {

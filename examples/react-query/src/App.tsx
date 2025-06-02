@@ -1,6 +1,6 @@
-import { QueryClientProvider, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryClient, trpc } from "./utils/trpc";
+import { QueryClientProvider, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useReducer, useState } from "react";
+import { get, post, queryClient, useQuery } from "./api";
 
 export function App() {
   return (
@@ -12,7 +12,10 @@ export function App() {
 }
 
 function AllThreads() {
-  const threads = useQuery(trpc.threads.all.queryOptions());
+  const threads = useQuery({
+    queryKey: ["threads", "all"],
+    queryFn: () => get("threads.all") as Promise<{ id: number; title: string }[]>,
+  });
   return (
     <>
       <div>{threads.isSuccess && threads.data.map((thread) => <Thread thread={thread} key={thread.id} />)}</div>
@@ -23,7 +26,10 @@ function AllThreads() {
 
 function NewThread() {
   const [title, setTitle] = useState("");
-  const addThread = useMutation(trpc.threads.create.mutationOptions());
+  const addThread = useMutation({
+    mutationKey: ["threads", "create"],
+    mutationFn: (variables: { title: string }) => post("threads.create", variables),
+  });
 
   return (
     <div>
@@ -42,7 +48,10 @@ function NewThread() {
 }
 
 function Thread(props: { thread: { title: string; id: number } }) {
-  const deleteThread = useMutation(trpc.threads.delete.mutationOptions());
+  const deleteThread = useMutation({
+    mutationKey: ["threads", "delete"],
+    mutationFn: (variables: { id: number }) => post("threads.delete", variables),
+  });
 
   return (
     <div className="thread">
@@ -54,8 +63,10 @@ function Thread(props: { thread: { title: string; id: number } }) {
 }
 
 function AllPosts(props: { threadId: number }) {
-  const posts = useQuery(trpc.posts.allInThread.queryOptions({ threadId: props.threadId }));
-
+  const posts = useQuery({
+    queryKey: ["posts", "allInThread", props.threadId],
+    queryFn: () => get("posts.allInThread", { threadId: props.threadId }) as Promise<{ content: string; id: number }[]>,
+  });
   return (
     <>
       <div>{posts.isSuccess && posts.data.map((p) => <Post post={p} key={p.id} threadId={props.threadId} />)}</div>
@@ -64,7 +75,11 @@ function AllPosts(props: { threadId: number }) {
   );
 }
 function Post(props: { post: { id: number; content: string }; threadId: number }) {
-  const deletePost = useMutation(trpc.posts.delete.mutationOptions());
+  const deletePost = useMutation({
+    mutationKey: ["posts", "delete"],
+    mutationFn: (variables: { id: number }) => post("posts.delete", variables),
+  });
+
   return (
     <div>
       Post: {props.post.content}
@@ -74,7 +89,10 @@ function Post(props: { post: { id: number; content: string }; threadId: number }
 }
 function NewPost(props: { threadId: number }) {
   const [content, setContent] = useState("");
-  const addPost = useMutation(trpc.posts.create.mutationOptions());
+  const addPost = useMutation({
+    mutationKey: ["posts", "create"],
+    mutationFn: (variables: { content: string; threadId: number }) => post("posts.create", variables),
+  });
 
   return (
     <>

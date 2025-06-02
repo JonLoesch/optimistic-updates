@@ -14,6 +14,13 @@ export class LayeredQueryCache<G extends OptimisticUpdateGenericParameters, T> {
     }
   }
 
+  *get(hash: G["QueryHash"]): Iterable<[T, Unsubscribable]> {
+    for (const l of this.#layers) {
+      const match = l.get(hash);
+      if (match !== noMatch) yield [match, { unsubscribe: () => l.delete(hash) }];
+    }
+  }
+
   delete(hash: G["QueryHash"]) {
     for (const l of this.#layers) {
       l.delete(hash);
@@ -78,6 +85,9 @@ export class CacheLayer<Hash extends PropertyKey, Params, Item> {
       }
       return match;
     });
+  }
+  get(hash: Hash) {
+    return this.#items.get(hash) ?? noMatch;
   }
 
   delete(hash: Hash) {

@@ -2,8 +2,11 @@
   "name": "@optimistic-updates/react-query",
   "version": "0.0.0",
   "description": "",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
+  "publishConfig": {
+    "main": "dist/index.js",
+    "typings": "dist/index.d.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "clean:build": "rimraf ./dist",

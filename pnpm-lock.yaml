@@ -77,15 +77,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.74.7
         version: 5.76.1(react@19.1.0)
-      '@trpc/client':
-        specifier: npm:@trpc/client
-        version: 11.1.2(@trpc/server@11.1.2(typescript@5.8.3))(typescript@5.8.3)
-      '@trpc/server':
-        specifier: npm:@trpc/server
-        version: 11.1.2(typescript@5.8.3)
-      '@trpc/tanstack-react-query':
-        specifier: npm:@trpc/tanstack-react-query
-        version: 11.1.2(@tanstack/react-query@5.76.1(react@19.1.0))(@trpc/client@11.1.2(@trpc/server@11.1.2(typescript@5.8.3))(typescript@5.8.3))(@trpc/server@11.1.2(typescript@5.8.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)
       react:
         specifier: ^19.1.0
         version: 19.1.0

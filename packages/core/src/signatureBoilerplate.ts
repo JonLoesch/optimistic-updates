@@ -2,7 +2,7 @@ import type { G, MutationState, stopInjection, SpecificDef, MutationWatch, AnyDe
 
 type InjectionParametersBase<Def extends AnyDef> = {
   from: G<Def>["MutationLocator"];
-  to: G<Def>["QueryLocator"];
+  into: G<Def>["QueryLocator"];
   transform: InjectionTransform<
     Def,
     {
@@ -13,7 +13,7 @@ type InjectionParametersBase<Def extends AnyDef> = {
 
 type InjectionParametersWithContext<Def extends AnyDef, TContext> = {
   from: G<Def>["MutationLocator"];
-  to: G<Def>["QueryLocator"];
+  into: G<Def>["QueryLocator"];
   context: (input: Def["source"]["input"]) => TContext;
   transform: InjectionTransform<
     Def,
@@ -26,7 +26,7 @@ type InjectionParametersWithContext<Def extends AnyDef, TContext> = {
 
 type InjectionParametersWithWatch<Def extends AnyDef, WatchResult> = {
   watch: MutationWatch<WatchResult>;
-  to: G<Def>["QueryLocator"];
+  into: G<Def>["QueryLocator"];
   transform: InjectionTransform<Def, WatchResult>;
 };
 
@@ -38,7 +38,7 @@ export type InjectionParameters<Def extends AnyDef, TContext, WatchResult> =
   | InjectionParametersWithWatch<Def, WatchResult>;
 
 export interface Engine {
-  watchMutation: {
+  watch: {
     <Input, Output>(ml: G<SpecificDef<Input, unknown, Output, unknown, unknown, unknown>>["MutationLocator"]): MutationWatch<{ input: Input } & MutationState<Output>>;
     <Input, Output, Context>(
       ml: G<SpecificDef<Input, unknown, Output, unknown, unknown, unknown>>["MutationLocator"],

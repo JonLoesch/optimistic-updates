@@ -10,7 +10,6 @@ import type { Engine } from "./signatureBoilerplate";
 export type { Engine as OptimisticUpdateEngineTRPC } from "./signatureBoilerplate";
 import { G } from "./g";
 
-export type OptimisticUpdateTRPCModel = ReturnType<typeof optimisticEngineTRPC>["engine"];
 export function optimisticEngineTRPC<Router extends AnyTRPCRouter>(queryClient: QueryClient) {
   const mutations$ = new Subject<ObservedValueOf<Parameters<typeof optimisticEngineCore<G>>[0]["mutations$"]>>();
   const queryCacheExpirations$ = new Subject<

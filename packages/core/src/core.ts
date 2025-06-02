@@ -200,7 +200,7 @@ export function optimisticEngineCore<G extends OptimisticUpdateGenericParameters
   return {
     engine: {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-      watchMutation<Input, Output, Result>(
+      watch<Input, Output, Result>(
         ml: G["MutationLocator"],
         onMutationInput?: (input: unknown) => object | ((data: MutationState<unknown>) => unknown)
       ) {
@@ -220,11 +220,11 @@ export function optimisticEngineCore<G extends OptimisticUpdateGenericParameters
       // postprocessQuery,
       inject(params: InjectionParameters<AnyDef, unknown, unknown>) {
         if ("watch" in params) {
-          postprocessQuery(params.to, params.watch, params.transform);
+          postprocessQuery(params.into, params.watch, params.transform);
         } else if ("context" in params) {
-          postprocessQuery(params.to, this.watchMutation(params.from, params.context), params.transform);
+          postprocessQuery(params.into, this.watch(params.from, params.context), params.transform);
         } else {
-          postprocessQuery(params.to, this.watchMutation(params.from), params.transform);
+          postprocessQuery(params.into, this.watch(params.from), params.transform);
         }
       },
     } satisfies Engine,
