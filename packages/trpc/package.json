@@ -2,11 +2,18 @@
   "name": "@optimistic-updates/trpc",
   "version": "0.0.0",
   "description": "",
-  "main": "dist/trpc.js",
-  "types": "dist/trpc.d.ts",
+  "main": "src/trpc.ts",
+  "publishConfig": {
+    "main": "dist/trpc.js",
+    "typings": "dist/trpc.d.ts"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "clean:build": "rimraf ./dist",
+    "prepack": "pnpm clean:build && pnpm build",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "format": "prettier --check .",
