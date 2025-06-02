@@ -1,5 +1,13 @@
 # @optimistic-updates/react-query
 
+## 0.0.2
+
+### Patch Changes
+
+- Fixing npm publish problems
+- Updated dependencies
+  - @optimistic-updates/tanstack-query@0.0.2
+
 ## 0.0.1
 
 ### Patch Changes

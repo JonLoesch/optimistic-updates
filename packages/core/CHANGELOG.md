@@ -1,5 +1,11 @@
 # @optimistic-updates/core
 
+## 0.0.2
+
+### Patch Changes
+
+- Fixing npm publish problems
+
 ## 0.0.1
 
 ### Patch Changes
