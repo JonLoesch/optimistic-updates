@@ -176,7 +176,7 @@ describe("createAbstractOptimisticModel", () => {
   function basicPostprocess(e: ReturnType<typeof testEngine>) {
     e.engine.inject({
       from: from(""),
-      to: to(""),
+      into: to(""),
       transform(value, mutationState) {
         return [
           ...value,
@@ -190,7 +190,7 @@ describe("createAbstractOptimisticModel", () => {
     let inc = 1;
     e.engine.inject({
       from: from(""),
-      to: to(""),
+      into: to(""),
       context: () => ({ fakeId: `ID:${inc++}` }),
       transform: (valuesFromServer: G["QueryOutput"], mutationState) => {
         if (mutationState.status === "success") {
