@@ -1,56 +1,38 @@
 import {
   OptimisticUpdateTanstackQueryModel,
   stopInjection,
-  type InferWatchedType
+  type InferWatchedType,
 } from "@optimistic-updates/tanstack-query";
 import { trpc } from "./utils/trpc";
 
-export function addOptimisticUpdates(
-  model: OptimisticUpdateTanstackQueryModel
-) {
+export function addOptimisticUpdates(model: OptimisticUpdateTanstackQueryModel) {
   let autoDec = -1;
   const makeFakeId = () => ({
-    fakeId: autoDec--
+    fakeId: autoDec--,
   });
-  const additions = model.watchMutation<
-    { title: string },
-    { id: number },
-    typeof makeFakeId
-  >(
+  const additions = model.watchMutation<{ title: string }, { id: number }, typeof makeFakeId>(
     {
-      mutationKey: trpc.threads.create.mutationKey()
+      mutationKey: trpc.threads.create.mutationKey(),
     },
     makeFakeId
   );
-  model.postprocessQuery<
-    { id: number; title: string }[],
-    InferWatchedType<typeof additions>
-  >(
+  model.postprocessQuery<{ id: number; title: string }[], InferWatchedType<typeof additions>>(
     { queryKey: trpc.threads.all.queryKey() },
     additions,
     (value, mutationState) => {
-      if (
-        mutationState.status === "success" &&
-        value.find((x) => x.id === mutationState.data.id)
-      ) {
+      if (mutationState.status === "success" && value.find((x) => x.id === mutationState.data.id)) {
         return stopInjection;
       }
-      return [
-        ...value,
-        { ...mutationState.input, id: mutationState.context.fakeId }
-      ];
+      return [...value, { ...mutationState.input, id: mutationState.context.fakeId }];
     }
   );
   const deletions = model.watchMutation<{ id: number }, "success", undefined>(
     {
-      mutationKey: trpc.threads.delete.mutationKey()
+      mutationKey: trpc.threads.delete.mutationKey(),
     },
     undefined
   );
-  model.postprocessQuery<
-    { id: number; title: string }[],
-    InferWatchedType<typeof deletions>
-  >(
+  model.postprocessQuery<{ id: number; title: string }[], InferWatchedType<typeof deletions>>(
     { queryKey: trpc.threads.all.queryKey() },
     deletions,
     (value, mutationState) => {

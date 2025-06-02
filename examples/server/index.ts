@@ -42,49 +42,39 @@ const appRouter = router({
     all: publicProcedure.query(() =>
       Array.from(fakeData).map(([id, { posts, ...rest }]) => ({
         id,
-        ...rest
+        ...rest,
       }))
     ),
-    create: publicProcedure
-      .input(z.object({ title: z.string() }))
-      .mutation(({ input }) => {
-        const id = autoInc++;
-        fakeData.set(id, { ...input, posts: new Map() });
-        return { id };
-      }),
-    delete: publicProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(({ input }) => {
-        if (!fakeData.delete(input.id)) throw new Error();
-        return "success";
-      })
+    create: publicProcedure.input(z.object({ title: z.string() })).mutation(({ input }) => {
+      const id = autoInc++;
+      fakeData.set(id, { ...input, posts: new Map() });
+      return { id };
+    }),
+    delete: publicProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => {
+      if (!fakeData.delete(input.id)) throw new Error();
+      return "success";
+    }),
   }),
   posts: router({
-    allInThread: publicProcedure
-      .input(z.object({ threadId: z.number() }))
-      .query(({ input }) =>
-        Array.from(fakeData.get(input.threadId)!.posts).map(([id, post]) => ({
-          id,
-          ...post
-        }))
-      ),
-    create: publicProcedure
-      .input(z.object({ threadId: z.number(), content: z.string() }))
-      .mutation(({ input }) => {
-        const id = autoInc++;
-        const { threadId, ...rest } = input;
-        fakeData.get(threadId)!.posts.set(id, { ...rest });
-        return { id };
-      }),
-    delete: publicProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(({ input }) => {
-        for (const thread of fakeData.values()) {
-          thread.posts.delete(input.id);
-        }
-        return "success";
-      })
-  })
+    allInThread: publicProcedure.input(z.object({ threadId: z.number() })).query(({ input }) =>
+      Array.from(fakeData.get(input.threadId)!.posts).map(([id, post]) => ({
+        id,
+        ...post,
+      }))
+    ),
+    create: publicProcedure.input(z.object({ threadId: z.number(), content: z.string() })).mutation(({ input }) => {
+      const id = autoInc++;
+      const { threadId, ...rest } = input;
+      fakeData.get(threadId)!.posts.set(id, { ...rest });
+      return { id };
+    }),
+    delete: publicProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => {
+      for (const thread of fakeData.values()) {
+        thread.posts.delete(input.id);
+      }
+      return "success";
+    }),
+  }),
 });
 
 // export only the type definition of the API
@@ -97,5 +87,5 @@ createHTTPServer({
   router: appRouter,
   createContext() {
     return {};
-  }
+  },
 }).listen(3033);

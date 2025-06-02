@@ -65,7 +65,7 @@ describe("LayeredQueryCache", () => {
     cache.add(
       () =>
         new CacheLayer({
-          create: (q) => (/^[aeiou]/i.test(q.fakeQuery) ? 2 : noMatch)
+          create: (q) => (/^[aeiou]/i.test(q.fakeQuery) ? 2 : noMatch),
         })
     );
     cache.add(() => new CacheLayer({ create: () => 3 }));
@@ -93,7 +93,7 @@ describe("LayeredQueryCache", () => {
     cache.add(
       () =>
         new CacheLayer({
-          create: (q) => (/^[aeiou]/i.test(q.fakeQuery) ? 2 : noMatch)
+          create: (q) => (/^[aeiou]/i.test(q.fakeQuery) ? 2 : noMatch),
         })
     );
     cache.add(() => new CacheLayer({ create: () => 3 }));
@@ -122,7 +122,7 @@ describe("LayeredQueryCache", () => {
       () =>
         new CacheLayer({
           create: (q) => (/^[aeiou]/i.test(q.fakeQuery) ? 2 : noMatch),
-          canGC: canGc
+          canGC: canGc,
         })
     );
     cache.add(() => new CacheLayer({ create: () => 3, canGC: canGc }));

@@ -9,10 +9,10 @@ export const queryClient = new QueryClient();
 addOptimisticUpdates(createOptimisticTanstackQueryModel(queryClient).model);
 
 const trpcClient = createTRPCClient<AppRouter>({
-  links: [loggerLink(), httpBatchLink({ url: "http://localhost:3033" })]
+  links: [loggerLink(), httpBatchLink({ url: "http://localhost:3033" })],
 });
 
 export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: trpcClient,
-  queryClient
+  queryClient,
 });
