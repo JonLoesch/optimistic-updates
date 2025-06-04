@@ -62,7 +62,7 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
 
       - name: Build with Next.js
-        run: pnpm --filter=./docs next build
+        run: pnpm --filter=./docs build
         env:
           NODE_ENV: production
           PAGES_BASE_PATH: ${{ steps.setup_pages.outputs.base_path }}
