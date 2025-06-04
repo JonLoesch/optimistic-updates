@@ -1,9 +1,6 @@
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import type { ConfigArray } from "typescript-eslint";
-// @ts-expect-error: no known types for @next/eslint-plugin-next
-import next from "@next/eslint-plugin-next";
-import { fixupConfigRules } from "@eslint/compat";
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 export default tseslint.config(
@@ -58,11 +55,7 @@ export default tseslint.config(
       },
     },
   },
-  // fixupConfigRules(next.configs.recommended),
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-  fixupConfigRules((next as any).configs["core-web-vitals"]),
-
   {
-    ignores: [...[".pnpm-store", "pnpm-lock.yaml", "**/node_modules/*", "**/dist/*", "**/.*"]],
+    ignores: [...[".pnpm-store", "pnpm-lock.yaml", "**/node_modules/*", "**/dist/*", "**/.*", "docs/*"]],
   }
 ) as ConfigArray;

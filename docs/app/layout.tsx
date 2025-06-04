@@ -1,3 +1,4 @@
+import Link from "next/link";
 import React, { FC, PropsWithChildren } from "react";
 
 const Layout: FC<PropsWithChildren> = ({ children }) => {
@@ -8,10 +9,10 @@ const Layout: FC<PropsWithChildren> = ({ children }) => {
         <nav>
           <ul>
             <li>
-              <a href="/">Home</a>
+              <Link href="/">Home</Link>
             </li>
             <li>
-              <a href="/docs">Docs</a>
+              <Link href="/docs">Docs</Link>
             </li>
           </ul>
         </nav>
