@@ -1,0 +1,21 @@
+{
+  "name": "nextra-docs",
+  "version": "1.0.0",
+  "description": "Documentation site using Nextra",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "latest",
+    "nextra": "latest"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "@types/react": "latest",
+    "@types/node": "latest"
+  },
+  "license": "MIT"
+}

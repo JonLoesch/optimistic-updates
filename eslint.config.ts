@@ -56,6 +56,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: [...[".pnpm-store", "pnpm-lock.yaml", "**/node_modules/*", "**/dist/*", "**/.*"]],
+    ignores: [...[".pnpm-store", "pnpm-lock.yaml", "**/node_modules/*", "**/dist/*", "**/.*", "docs/*"]],
   }
 ) as ConfigArray;
