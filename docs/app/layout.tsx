@@ -1,6 +1,6 @@
-import React from "react";
+import React, { FC, PropsWithChildren } from "react";
 
-const Layout = ({ children }) => {
+const Layout: FC<PropsWithChildren> = ({ children }) => {
   return (
     <div>
       <header>
