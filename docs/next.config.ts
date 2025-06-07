@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import nextra, { NextraConfig } from "nextra";
 
 const nextConfig: NextConfig = {
   /**
@@ -13,7 +14,8 @@ const nextConfig: NextConfig = {
    *
    * @see https://nextjs.org/docs/app/api-reference/next-config-js/basePath
    */
-  basePath: "/nextjs-github-pages",
+  // basePath: "/nextjs-github-pages",
+  basePath: "",
 
   /**
    * Disable server-based image optimization. Next.js does not support
@@ -27,6 +29,14 @@ const nextConfig: NextConfig = {
 
   reactStrictMode: true,
   pageExtensions: ["tsx", "mdx"],
+  turbopack: {
+    resolveAlias: {
+      // Path to your `mdx-components` file with extension
+      "next-mdx-import-source-file": "./src/mdx-components.ts",
+    },
+  },
 };
 
-export default nextConfig;
+const nextraConfig: NextraConfig = {};
+
+export default nextra(nextraConfig)(nextConfig);

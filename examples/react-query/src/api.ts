@@ -16,9 +16,7 @@ export async function get(url: string, vars?: unknown) {
   const raw = await fetch(
     `http://localhost:3033/${url}?${new URLSearchParams(vars ? { input: JSON.stringify(vars) } : undefined)}`
   );
-  console.log(raw);
   const json = await raw.json();
-  console.log(json);
   if (json.error) {
     throw new Error(json.error);
   }
@@ -32,9 +30,7 @@ export async function post(url: string, input: unknown) {
     },
     body: JSON.stringify(input),
   });
-  console.log(raw);
   const json = await raw.json();
-  console.log(json);
   if (json.error) {
     throw new Error(json.error);
   }

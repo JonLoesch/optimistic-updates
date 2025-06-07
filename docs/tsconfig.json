@@ -6,9 +6,9 @@
     "skipLibCheck": true,
     "noEmit": true,
     "incremental": true,
-    "module": "esnext",
+    "module": "nodenext",
     "esModuleInterop": true,
-    "moduleResolution": "node",
+    "moduleResolution": "nodenext",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -19,6 +19,6 @@
     ],
     "strict": false
   },
-  "include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.ts", "**/*.tsx"],
+  "include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.ts", "**/*.tsx", "content/11-zorder.mdx"],
   "exclude": ["node_modules"]
 }

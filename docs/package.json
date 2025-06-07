@@ -1,6 +1,6 @@
 {
-  "name": "nextra-docs",
-  "version": "1.0.0",
+  "name": "docs",
+  "version": "0.0.2",
   "description": "Documentation site using Nextra",
   "main": "index.js",
   "scripts": {
@@ -10,12 +10,16 @@
   },
   "dependencies": {
     "next": "latest",
-    "nextra": "latest"
+    "nextra": "latest",
+    "nextra-theme-docs": "^4.2.17",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
-    "typescript": "latest",
+    "@types/node": "latest",
     "@types/react": "latest",
-    "@types/node": "latest"
+    "pagefind": "^1.3.0",
+    "typescript": "latest"
   },
   "license": "MIT"
 }
