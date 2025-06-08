@@ -1,0 +1,130 @@
+Getting started is pretty easy. First you need to figure out what variant you are using:
+
+<Codesplit>
+  <Codesplit.TRPC>
+    Use this variant if you are using [TRPC](https://trpc.io) with their new [TanStack React Query
+    integration](https://trpc.io/docs/client/tanstack-react-query)
+  </Codesplit.TRPC>
+  <Codesplit.ReactQuery>
+    Use this variant if you are using [React Query](https://tanstack.com/query/latest/docs/framework/react/overview)
+    directly
+  </Codesplit.ReactQuery>
+</Codesplit>
+
+<details>
+  <summary>
+    Obviously that's not a lot of options. Other query libraries that are planned but I haven't implemented adapters for
+    yet:
+  </summary>
+  - Tanstack Query with other frameworks: - [Vue Query](https://tanstack.com/query/latest/docs/framework/vue/overview) -
+  [Solid Query](https://tanstack.com/query/latest/docs/framework/solid/overview) - [Svelte
+  Query](https://tanstack.com/query/latest/docs/framework/svelte/overview) - [SWR](https://swr.vercel.app/) -
+  [RTK-Query](https://redux-toolkit.js.org/tutorials/rtk-query) - Maybe
+  [react-query-kit](https://github.com/HuolalaTech/react-query-kit)? IDK, haven't looked into it deeply but seems like a
+  good fit at first glance. - TRPC with other integrations besides TanStack React Query
+  integration](https://trpc.io/docs/client/tanstack-react-query) If any of these would be useful to you, please [let me
+  know](/feedback)!
+</details>
+
+## 1 - Install the package:
+
+<Codesplit>
+  <Codesplit.TRPC>
+    <NpmInstall packageName="@optimistic-updates/trpc" />
+  </Codesplit.TRPC>
+  <Codesplit.ReactQuery>
+    <NpmInstall packageName="@optimistic-updates/react-query" />
+  </Codesplit.ReactQuery>
+</Codesplit>
+
+## 2 - Setup the app-wide integration:
+
+<Codesplit>
+  <Codesplit.TRPC>
+    If you followed [these instructions](https://trpc.io/docs/client/tanstack-react-query/setup#3a-setup-the-trpc-context-provider) when setting up your TRPC client, you probably have somewhere in your app where you are initializing a `QueryClient` object and subsequently a `trpcClient`  Find that place and add (after you create the `QueryClient` but before you create the `trpcClient`):
+    ```
+    const { engine, link } = optimisticEngineTRPC(queryClient);
+    ```
+    The `link` object is a TRPC compatible [link](https://trpc.io/docs/client/links) that will hook into the client and intercept network traffic.  It should be used to create the `trpcClient` like so:
+    ```
+      const trpcClient = createTRPCClient<AppRouter>({
+        links: [
+          link,
+          /* ... Whatever other links you were already using ... */,
+        ],
+      });6
+    ```
+    The `engine` is used to inject optimistic updates.  It's probably a good idea to put this in a separate file because the logic could get rather large.  I would recommend making a file with an export like:
+    ```
+      export function addOptimisticUpdates(engine: OptimisticUpdateEngineTRPC, trpc: TRPCOptionsProxy<AppRouter>) {
+        /* ... engine.inject calls go here ... */
+      }
+    ```
+    And then after constructing the TRPC object, run:
+    ```
+      const trpc = createTRPCOptionsProxy<AppRouter>({
+        /* (unchanged from normal TRPC setup) */
+      });
+      addOptimisticUpdates(engine, trpc);
+    ```
+    From here on out, you should be able to add any number of injections (`inject` calls) to the `addOptimisticUpdates` function.  You can organize these calls however you want.  They should only be called once on application startup.
+  </Codesplit.TRPC>
+  <Codesplit.ReactQuery>
+    TODO Coming soon
+  </Codesplit.ReactQuery>
+</Codesplit>
+
+## 3 - Implement your first injection
+
+I can't give you the exact code to write for an injection because it's tied to your specific endpoints and I don't know those. However, here's what one might look like, you can adapt it to your needs:
+
+<Codesplit>
+  <Codesplit.TRPC>
+    ```
+      engine.inject({
+        from: trpc.threads.delete,
+        into: trpc.threads.all,
+        transform(value, mutationState) {
+          if (!value.find((x) => x.id === mutationState.input.id)) {
+            return stopInjection;
+          }
+          return value.filter((x) => x.id !== mutationState.input.id);
+        },
+      });
+    ```
+  </Codesplit.TRPC>
+  <Codesplit.ReactQuery>
+    ```
+      engine.inject({
+        from: { mutationKey: ["threads", "delete"] },
+        into: { queryKey: ["threads", "all"] },
+        transform: (value: { id: number; title: string }[], mutationState: { input: { id: number } }) => {
+          if (!value.find((x) => x.id === mutationState.input.id)) {
+            return stopInjection;
+          }
+          return value.filter((x) => x.id !== mutationState.input.id);
+        },
+      });
+    ```
+  </Codesplit.ReactQuery>
+</Codesplit>
+For more details on how injections work, [click here](/guide/injections)
+
+## 4 - Check out the example
+
+<Codesplit>
+  <Codesplit.TRPC>
+    If you're stuck or just want to see it in action without downloading it, there's an example [here](/examples/trpc)
+    and a Stackblitz here: [![Open in
+    StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/JonLoesch/optimistic-updates?file=examples%2Ftrpc%2Fsrc%2Foptimistic-updates.ts&startScript=example:stackblitz:trpc)
+  </Codesplit.TRPC>
+  <Codesplit.ReactQuery>
+    If you're stuck or just want to see it in action without downloading it, there's an example
+    [here](/examples/react-query) and a Stackblitz here: [![Open in
+    StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/JonLoesch/optimistic-updates?file=examples%react-query%2Fsrc%2Foptimistic-updates.ts&startScript=example:stackblitz:react-query)
+  </Codesplit.ReactQuery>
+</Codesplit>
+
+## 5 - Further reading
+
+YouInjections are the core of this library. Read [here](/guide/injections) for more information on what is possible with them. Other than that, cheers! You're done with setup :)

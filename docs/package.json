@@ -9,6 +9,9 @@
     "start": "next start"
   },
   "dependencies": {
+    "@optimistic-updates/react-query": "^0.0.2",
+    "@tanstack/react-query": "^5.80.6",
+    "@xyflow/react": "^12.6.4",
     "next": "latest",
     "nextra": "latest",
     "nextra-theme-docs": "^4.2.17",

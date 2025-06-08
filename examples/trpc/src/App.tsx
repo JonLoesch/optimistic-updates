@@ -20,6 +20,31 @@ function AllThreads() {
     </>
   );
 }
+function _Render() {
+  const threads = useQuery(trpc.threads.all.queryOptions());
+  return (
+    <div>
+      {threads.isSuccess &&
+        threads.data.map((thread) => {
+          return <Thread thread={thread} key={thread.id} />;
+        })}
+    </div>
+  );
+}
+
+function _New() {
+  const addItem = useMutation(trpc.threads.create.mutationOptions());
+
+  return (
+    <input
+      type="button"
+      value="Add New Item"
+      onClick={() => {
+        addItem.mutate({ title: "asdf" });
+      }}
+    />
+  );
+}
 
 function NewThread() {
   const [title, setTitle] = useState("");

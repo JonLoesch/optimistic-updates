@@ -71,6 +71,15 @@ importers:
 
   docs:
     dependencies:
+      '@optimistic-updates/react-query':
+        specifier: ^0.0.2
+        version: 0.0.2(react@19.1.0)
+      '@tanstack/react-query':
+        specifier: ^5.80.6
+        version: 5.80.6(react@19.1.0)
+      '@xyflow/react':
+        specifier: ^12.6.4
+        version: 12.6.4(@types/react@19.1.6)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       next:
         specifier: latest
         version: 15.3.3(@babel/core@7.27.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -110,7 +119,7 @@ importers:
         version: link:../../packages/tanstack-query
       '@tanstack/react-query':
         specifier: ^5.74.7
-        version: 5.76.1(react@19.1.0)
+        version: 5.80.6(react@19.1.0)
       react:
         specifier: ^19.1.0
         version: 19.1.0
@@ -172,7 +181,7 @@ importers:
         version: link:../../packages/trpc
       '@tanstack/react-query':
         specifier: ^5.74.7
-        version: 5.76.1(react@19.1.0)
+        version: 5.80.6(react@19.1.0)
       '@trpc/client':
         specifier: npm:@trpc/client
         version: 11.3.1(@trpc/server@11.3.1(typescript@5.8.3))(typescript@5.8.3)
@@ -181,7 +190,7 @@ importers:
         version: 11.3.1(typescript@5.8.3)
       '@trpc/tanstack-react-query':
         specifier: npm:@trpc/tanstack-react-query
-        version: 11.3.1(@tanstack/react-query@5.76.1(react@19.1.0))(@trpc/client@11.3.1(@trpc/server@11.3.1(typescript@5.8.3))(typescript@5.8.3))(@trpc/server@11.3.1(typescript@5.8.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)
+        version: 11.3.1(@tanstack/react-query@5.80.6(react@19.1.0))(@trpc/client@11.3.1(@trpc/server@11.3.1(typescript@5.8.3))(typescript@5.8.3))(@trpc/server@11.3.1(typescript@5.8.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)
       react:
         specifier: ^19.1.0
         version: 19.1.0
@@ -237,7 +246,7 @@ importers:
         version: link:../tanstack-query
       '@tanstack/react-query':
         specifier: ^5.76.1
-        version: 5.76.1(react@19.1.0)
+        version: 5.80.6(react@19.1.0)
     devDependencies:
       '@types/jest':
         specifier: ^29.5.14
@@ -262,7 +271,7 @@ importers:
         version: link:../core
       '@tanstack/query-core':
         specifier: ^5.76.0
-        version: 5.76.0
+        version: 5.80.6
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
@@ -300,10 +309,10 @@ importers:
     devDependencies:
       '@tanstack/query-core':
         specifier: ^5.76.0
-        version: 5.76.0
+        version: 5.80.6
       '@trpc/tanstack-react-query':
         specifier: ^11.1.2
-        version: 11.3.1(@tanstack/react-query@5.76.1(react@19.1.0))(@trpc/client@11.3.1(@trpc/server@11.3.1(typescript@5.8.3))(typescript@5.8.3))(@trpc/server@11.3.1(typescript@5.8.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)
+        version: 11.3.1(@tanstack/react-query@5.80.6(react@19.1.0))(@trpc/client@11.3.1(@trpc/server@11.3.1(typescript@5.8.3))(typescript@5.8.3))(@trpc/server@11.3.1(typescript@5.8.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)
       '@types/jest':
         specifier: ^29.5.14
         version: 29.5.14
@@ -1216,6 +1225,15 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
+  '@optimistic-updates/core@0.0.2':
+    resolution: {integrity: sha512-uos3gZyEvQn+kAyjJXtTJxcbOcDeS7/C/SawayVAgRK7xUkZovv0zdCqCnOipsqG+WWkLPk+XrDtyAZCTz3lzg==}
+
+  '@optimistic-updates/react-query@0.0.2':
+    resolution: {integrity: sha512-HdGsBT1ZazpfwMyxU9wa3KEBxjiOOID3XLCzbVuJxnPkyGF+p3LlwPCYe3peLS1CbxNg2w3g4axAtt487ZrQjQ==}
+
+  '@optimistic-updates/tanstack-query@0.0.2':
+    resolution: {integrity: sha512-x12dyw32bOrnPsPZlMmEjAjsjsHhwA+mhQ9cfzBSS6d4k1dofz2qOvDm1u2Of1w3s/cu9vthh9PyURut2cLTHQ==}
+
   '@pagefind/darwin-arm64@1.3.0':
     resolution: {integrity: sha512-365BEGl6ChOsauRjyVpBjXybflXAOvoMROw3TucAROHIcdBvXk9/2AmEvGFU0r75+vdQI4LJdJdpH4Y6Yqaj4A==}
     cpu: [arm64]
@@ -1498,11 +1516,11 @@ packages:
   '@swc/types@0.1.21':
     resolution: {integrity: sha512-2YEtj5HJVbKivud9N4bpPBAyZhj4S2Ipe5LkUG94alTpr7in/GU/EARgPAd3BwU+YOmFVJC2+kjqhGRi3r0ZpQ==}
 
-  '@tanstack/query-core@5.76.0':
-    resolution: {integrity: sha512-FN375hb8ctzfNAlex5gHI6+WDXTNpe0nbxp/d2YJtnP+IBM6OUm7zcaoCW6T63BawGOYZBbKC0iPvr41TteNVg==}
+  '@tanstack/query-core@5.80.6':
+    resolution: {integrity: sha512-nl7YxT/TAU+VTf+e2zTkObGTyY8YZBMnbgeA1ee66lIVqzKlYursAII6z5t0e6rXgwUMJSV4dshBTNacNpZHbQ==}
 
-  '@tanstack/react-query@5.76.1':
-    resolution: {integrity: sha512-YxdLZVGN4QkT5YT1HKZQWiIlcgauIXEIsMOTSjvyD5wLYK8YVvKZUPAysMqossFJJfDpJW3pFn7WNZuPOqq+fw==}
+  '@tanstack/react-query@5.80.6':
+    resolution: {integrity: sha512-izX+5CnkpON3NQGcEm3/d7LfFQNo9ZpFtX2QsINgCYK9LT2VCIdi8D3bMaMSNhrAJCznRoAkFic76uvLroALBw==}
     peerDependencies:
       react: ^18 || ^19
 
@@ -1813,6 +1831,15 @@ packages:
     resolution: {integrity: sha512-p96FSY54r+WJ50FIOsCOjyj/wavs8921hG5+kVMmZgKcvIKxMXHTrjNJvRgWa/zuX3B6t2lijLNFaOyuxUH+2A==}
     engines: {node: '>=14.6'}
 
+  '@xyflow/react@12.6.4':
+    resolution: {integrity: sha512-/dOQ43Nu217cwHzy7f8kNUrFMeJJENzftVgT2VdFFHi6fHlG83pF+gLmvkRW9Be7alCsR6G+LFxxCdsQQbazHg==}
+    peerDependencies:
+      react: '>=17'
+      react-dom: '>=17'
+
+  '@xyflow/system@0.0.61':
+    resolution: {integrity: sha512-TsZG/Ez8dzxX6/Ol44LvFqVZsYvyz6dpDlAQZZk6hTL7JLGO5vN3dboRJqMwU8/Qtr5IEv5YBzojjAwIqW1HCA==}
+
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
     peerDependencies:
@@ -2020,6 +2047,9 @@ packages:
 
   cjs-module-lexer@1.4.3:
     resolution: {integrity: sha512-9z8TZaGM1pfswYeXrUpzPrkx8UnWYdhJclsiYMm6x/w5+nN+8Tf/LnAgfLGQCm59qAOxU8WwHEq2vNwF6i4j+Q==}
+
+  classcat@5.0.5:
+    resolution: {integrity: sha512-JhZUT7JFcQy/EzW605k/ktHtncoo9vnyW/2GspNYwFlN1C/WmjuV/xtS04e9SOkL2sTdw0VAZ2UGCcQ9lR6p6w==}
 
   cli-cursor@5.0.0:
     resolution: {integrity: sha512-aCj4O5wKyszjMmDT4tZj93kxyydN/K5zPWSCe6/0AV/AA1pqe5ZBIw0a2ZfPQV7lL5/yb5HsUreJ6UFAF1tEQw==}
@@ -4503,6 +4533,21 @@ packages:
   zod@3.25.3:
     resolution: {integrity: sha512-VGZqnyYNrl8JpEJRZaFPqeVNIuqgXNu4cXZ5cOb6zEUO1OxKbRnWB4UdDIXMmiERWncs0yDQukssHov8JUxykQ==}
 
+  zustand@4.5.7:
+    resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
+    engines: {node: '>=12.7.0'}
+    peerDependencies:
+      '@types/react': '>=16.8'
+      immer: '>=9.0.6'
+      react: '>=16.8'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      immer:
+        optional: true
+      react:
+        optional: true
+
   zustand@5.0.5:
     resolution: {integrity: sha512-mILtRfKW9xM47hqxGIxCv12gXusoY/xTSHBYApXozR0HmQv299whhBeeAcRy+KrPPybzosvJBCOmVjq6x12fCg==}
     engines: {node: '>=12.20.0'}
@@ -5528,6 +5573,23 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
 
+  '@optimistic-updates/core@0.0.2':
+    dependencies:
+      rxjs: 7.8.2
+
+  '@optimistic-updates/react-query@0.0.2(react@19.1.0)':
+    dependencies:
+      '@optimistic-updates/tanstack-query': 0.0.2
+      '@tanstack/react-query': 5.80.6(react@19.1.0)
+    transitivePeerDependencies:
+      - react
+
+  '@optimistic-updates/tanstack-query@0.0.2':
+    dependencies:
+      '@optimistic-updates/core': 0.0.2
+      '@tanstack/query-core': 5.80.6
+      rxjs: 7.8.2
+
   '@pagefind/darwin-arm64@1.3.0':
     optional: true
 
@@ -5774,11 +5836,11 @@ snapshots:
     dependencies:
       '@swc/counter': 0.1.3
 
-  '@tanstack/query-core@5.76.0': {}
+  '@tanstack/query-core@5.80.6': {}
 
-  '@tanstack/react-query@5.76.1(react@19.1.0)':
+  '@tanstack/react-query@5.80.6(react@19.1.0)':
     dependencies:
-      '@tanstack/query-core': 5.76.0
+      '@tanstack/query-core': 5.80.6
       react: 19.1.0
 
   '@tanstack/react-virtual@3.13.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
@@ -5811,9 +5873,9 @@ snapshots:
     dependencies:
       typescript: 5.8.3
 
-  '@trpc/tanstack-react-query@11.3.1(@tanstack/react-query@5.76.1(react@19.1.0))(@trpc/client@11.3.1(@trpc/server@11.3.1(typescript@5.8.3))(typescript@5.8.3))(@trpc/server@11.3.1(typescript@5.8.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)':
+  '@trpc/tanstack-react-query@11.3.1(@tanstack/react-query@5.80.6(react@19.1.0))(@trpc/client@11.3.1(@trpc/server@11.3.1(typescript@5.8.3))(typescript@5.8.3))(@trpc/server@11.3.1(typescript@5.8.3))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.8.3)':
     dependencies:
-      '@tanstack/react-query': 5.76.1(react@19.1.0)
+      '@tanstack/react-query': 5.80.6(react@19.1.0)
       '@trpc/client': 11.3.1(@trpc/server@11.3.1(typescript@5.8.3))(typescript@5.8.3)
       '@trpc/server': 11.3.1(typescript@5.8.3)
       react: 19.1.0
@@ -6151,6 +6213,27 @@ snapshots:
 
   '@xmldom/xmldom@0.9.8': {}
 
+  '@xyflow/react@12.6.4(@types/react@19.1.6)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+    dependencies:
+      '@xyflow/system': 0.0.61
+      classcat: 5.0.5
+      react: 19.1.0
+      react-dom: 19.1.0(react@19.1.0)
+      zustand: 4.5.7(@types/react@19.1.6)(react@19.1.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+
+  '@xyflow/system@0.0.61':
+    dependencies:
+      '@types/d3-drag': 3.0.7
+      '@types/d3-selection': 3.0.11
+      '@types/d3-transition': 3.0.9
+      '@types/d3-zoom': 3.0.8
+      d3-drag: 3.0.0
+      d3-selection: 3.0.0
+      d3-zoom: 3.0.0
+
   acorn-jsx@5.3.2(acorn@8.14.1):
     dependencies:
       acorn: 8.14.1
@@ -6361,6 +6444,8 @@ snapshots:
   ci-info@3.9.0: {}
 
   cjs-module-lexer@1.4.3: {}
+
+  classcat@5.0.5: {}
 
   cli-cursor@5.0.0:
     dependencies:
@@ -9599,6 +9684,13 @@ snapshots:
       zod: 3.25.3
 
   zod@3.25.3: {}
+
+  zustand@4.5.7(@types/react@19.1.6)(react@19.1.0):
+    dependencies:
+      use-sync-external-store: 1.5.0(react@19.1.0)
+    optionalDependencies:
+      '@types/react': 19.1.6
+      react: 19.1.0
 
   zustand@5.0.5(@types/react@19.1.6)(react@19.1.0)(use-sync-external-store@1.5.0(react@19.1.0)):
     optionalDependencies:
