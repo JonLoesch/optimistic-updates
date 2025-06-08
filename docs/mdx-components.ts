@@ -7,7 +7,6 @@ const themeComponents = getThemeComponents();
 
 // Merge components
 export function useMDXComponents(components?: any) {
-  console.log({ themeComponents, components });
   return {
     ...customComponents,
     ...themeComponents,

@@ -1,5 +1,9 @@
 import { optimisticEngineTanstackQuery } from "@optimistic-updates/tanstack-query";
-export { stopInjection } from "@optimistic-updates/tanstack-query";
+export {
+  stopInjection,
+  type MutationState,
+  type OptimisticUpdateEngineTanstackQuery as OptimisticUpdateEngineReactQuery,
+} from "@optimistic-updates/tanstack-query";
 import { QueryClient, QueryFunction, useQuery } from "@tanstack/react-query";
 
 export function optimisticEngineReactQuery(queryClient: QueryClient) {
