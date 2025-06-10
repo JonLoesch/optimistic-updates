@@ -8,49 +8,91 @@ This is a library (currently in an early proof-of-concept stage) that attempts t
 
 ## Overview / basic peudocode example
 
+##### Components
+
 Let's say you have a component that renders a list of items, pulled from the server:
-
 <Codesplit>
 <Codesplit.TRPC>
-```ts
-function ListOfThings() {
-  const things = useQuery(trpc.some.query.endpoint.queryOptions());
-  return (
-    <div>
-      {things.isSuccess &&
-        things.data.map((item) => {
-          // ...
-        })
-      }
-    </div>
-  );
-}
-```
+  ```ts
+  function ListOfThings() {
+    const things = useQuery(trpc.some.query.endpoint.queryOptions());
+    return (
+      <div>
+        {things.isSuccess &&
+          things.data.map((item) => {
+            // ...
+          })
+        }
+      </div>
+    );
+  }
+  ```
 </Codesplit.TRPC>
+<Codesplit.ReactQuery>
+  ```ts
+  function ListOfThings() {
+    const things = useOptimisticQuery({
+      queryKey: ["some", "query", "endpoint"],
+      queryFn: /* ... fetch ... */,
+    });
+    return (
+      <div>
+        {things.isSuccess &&
+          things.data.map((item) => {
+            // ...
+          })
+        }
+      </div>
+    );
+  }
+  ```
+  <Callout>notice the use of `useOptimisticQuery` instead of the usual `useQuery`</Callout>
+</Codesplit.ReactQuery>
 </Codesplit>
 
-And then you also have elsewhere (in the same page) a component that uses an API endpoint to add an item to the list:
-
+And you also have elsewhere (in the same page) a component that uses an API endpoint to add an item to the list:
 <Codesplit>
 <Codesplit.TRPC>
-```ts
-function AddThing() {
-  const addItem = useMutation(trpc.some.mutation.endpoint.mutationOptions());
+  ```ts
+  function AddThing() {
+    const addItem = useMutation(trpc.some.mutation.endpoint.mutationOptions());
 
-return (
-<input
-type="button"
-value="Add New Item"
-onClick={() => {
-addItem.mutate(/_ ... _/);
-}}
-/>
-);
-}
-
-````
+    return (
+      <input
+        type="button"
+        value="Add New Item"
+        onClick={() => {
+          addItem.mutate(/_ ... _/);
+        }}
+      />
+    );
+  }
+  ```
 </Codesplit.TRPC>
+<Codesplit.ReactQuery>
+  ```ts
+  function AddThing() {
+    const addItem = useMutation({
+      mutationKey: ["some", "mutation", "endpoint"],
+      mutationFn: /* ... API call ... */,
+    });
+
+    return (
+      <input
+        type="button"
+        value="Add New Item"
+        onClick={() => {
+          addItem.mutate(/_ ... _/);
+        }}
+      />
+    );
+  }
+  ```
+</Codesplit.ReactQuery>
 </Codesplit>
+
+##### Without optimistic updates
+Since there is nothing (yet) to refetch the list component when you add a thing, the mutation will fire and the list component will never update
 ```mermaid
  %%{init: {  'sequence': {'mirrorActors':false} } }%%
  sequenceDiagram
@@ -64,7 +106,8 @@ addItem.mutate(/_ ... _/);
     Note over L,S: <- Now displayed content is out of date and won't be updated without a page reload
 ````
 
-With optimistic update engine, you can get the first component to automatically refetch whenever the second completes a mutation. And you can do this without needing to modify the actual components' view logic. By adding the following code to your application setup, you can cause any code that fires a particular mutation to automatically trigger a refetch for related queries:
+##### With optimistic updates
+With optimistic update engine, you can link together the query and the mutation in an application-wide layer, without needing to modify either of the actual components' view logic. Adding the following code to your application setup will cause any instance of a matching mutation (`from`) to automatically trigger a refetch for related queries (`into`):
 
 <Codesplit>
 <Codesplit.TRPC>
@@ -72,33 +115,6 @@ With optimistic update engine, you can get the first component to automatically 
   engine.inject({
     from: trpc.some.mutation.endpoint,
     into: trpc.some.query.endpoint,
-  });
-```
-</Codesplit.TRPC>
-</Codesplit>
-```mermaid
- %%{init: {  'sequence': {'mirrorActors':false} } }%%
- sequenceDiagram
-    box Your Web App
-        participant L as ListOfThings
-        participant A as AddThing
-    end
-    participant S as Server
-    activate L
-    A->>S: Mutation fires
-    S->>A: Mutation returns
-    L->>S: Query is re-fired (automatically)
-    S->>L: Query returned
-    deactivate L
-    Note over L,S: displayed content was out of date while HTTP requests were in flight but is now up-to-date
-```
-
-That's honestly not that useful by itself, there's lots of (arguably simpler) ways of doing that. The real point of this library is to provide optimistic data transformations, so that the local state of the affected query will be updated as soon as the mutation fires, without needing to wait for it to return:
-
-```ts
-  engine.inject({
-    from: /* same as above */,
-    into: /* same as above */,
     transform(
       listFromQuery, /*Immutable object representing the result of the query*/
       mutationState, /* Immutable object representing the current state (input, maybe output, maybe error) of the mutation */
@@ -107,7 +123,22 @@ That's honestly not that useful by itself, there's lots of (arguably simpler) wa
     },
   });
 ```
-
+</Codesplit.TRPC>
+<Codesplit.ReactQuery>
+```ts
+  engine.inject({
+    from: { mutationKey: ["some", "mutation", "endpoint"] },
+    into: { queryKey: ["some", "query", "endpoint"] },
+    transform(
+      listFromQuery, /*Immutable object representing the result of the query*/
+      mutationState, /* Immutable object representing the current state (input, maybe output, maybe error) of the mutation */
+    ) {
+      return [...listFromQuery, {/* object constructed locally from mutationState */}];
+    },
+  });
+```
+</Codesplit.ReactQuery>
+</Codesplit>
 ```mermaid
  %%{init: {  'sequence': {'mirrorActors':false} } }%%
  sequenceDiagram
@@ -128,6 +159,6 @@ That's honestly not that useful by itself, there's lots of (arguably simpler) wa
 
 > [!NOTE]
 >
-> In the previous diagram, the gray window of time (on the `ListOfThings` column) was the time that the local state was completely out of date. In this diagram, the same gray box represents the duration of time where local state is an "optimistic" state. That is, the length of time where the UI is rendering what it **hopes** the server will return. Optimistic Update logic can reduce apparent response times, but at the cost of adding development complexity. The goal of this library is to reduce that added complexity, but it will not eliminate entirely.
+> In this diagram, the gray vertical box on the left represents the duration of time where local state is an "optimistic" state. That is, the length of time where the UI is rendering what it **hopes** the server will return. Optimistic Update logic can reduce apparent response times, but at the cost of adding development complexity. The goal of this library is to reduce that added complexity, but it will not eliminate entirely.
 
 There's a bit more to it -- there's some boilerplate setup I'm skipping over, and the `transform` function is a bit more complicated than I'm making it seem (it has to recognize when the server recieves the value and return a `stopInjection` token). But that's the gist of it. If this is something that sounds intriguing to you, there are more throrough docs for you to dive into. Be aware that it is **still an early stage concept**. There are still a few problems in the implementation (among other things, errors in the network stack are not properly propogated through and kind of just swallowed). So don't use it in any real system. You've been warned.

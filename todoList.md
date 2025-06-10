@@ -1,13 +1,7 @@
 #### Docs stuff:
 
-- http://localhost:3000/docs/introduction
-  - Skip over transform-less inject call
-    - Adjust note
-  - Add (h5?) headings for each step of diagram / TOC
-  - Fix code indentation
 - http://localhost:3000/docs/getting-started
-  - NPM install
-    - use something like: https://tanstack.com/query/latest/docs/framework/react/installation
+  - react-query app-wide integration
 - http://localhost:3000/docs/guide/injections
   - Injections are the core of the Optimistic Update Engine
   - you can call inject as many times as you like during setup
