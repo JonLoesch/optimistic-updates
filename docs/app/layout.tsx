@@ -1,7 +1,8 @@
 import { Footer, Layout, Navbar } from "nextra-theme-docs";
 import { Banner, Head } from "nextra/components";
 import { getPageMap } from "nextra/page-map";
-import "nextra-theme-docs/style.css";
+import "./globals.css";
+import { DaisyUiPatchTheme } from "../custom";
 
 export const metadata = {
   // Define your metadata here
@@ -28,6 +29,7 @@ export default async function RootLayout({ children }) {
       // Suggested by `next-themes` package https://github.com/pacocoursey/next-themes#with-app
       suppressHydrationWarning
     >
+      <DaisyUiPatchTheme />
       <Head
       // ... Your additional head options
       >

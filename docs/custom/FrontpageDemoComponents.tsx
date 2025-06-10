@@ -9,68 +9,30 @@ import {
 } from "./FrontpageDemo";
 import { OptimisticUpdateEngineReactQuery, stopInjection, type MutationState } from "@optimistic-updates/react-query";
 
-const sampleAdditions = [
-  "Carrots",
-  "Tomatoes",
-  "Onions",
-  "Avocados",
-  "Bell peppers",
-  "Milk",
-  "Greek yogurt",
-  "Cheddar cheese",
-  "Butter",
-  "Eggs",
-  "Chicken breast",
-  "Ground beef",
-  "Salmon fillets",
-  "Olive oil",
-  "Rice",
-  "Pasta",
-  "Canned tomatoes",
-  "Black beans",
-  "Oats",
-  "Bread",
-  "Peanut butter",
-  "Mixed berries",
-  "Frozen vegetables",
-  "Ice cream",
-  "Paper towels",
-  "Trash bags",
-  "Coffee beans",
-  "Orange juice",
-  "Sparkling water",
-];
-
-let inc = 1;
-function nextSample() {
-  return sampleAdditions[inc++ % sampleAdditions.length];
-}
-
 export const AddItem: FC = () => {
-  const [placeholder, setPlaceholder] = useState(sampleAdditions[0]);
   const [state, setState] = useState("");
   const mutation = useMutation({
     mutationKey: ["addTodo"],
     mutationFn: addToServerState,
   });
 
+  // This is a silly behaviour but in the demo we don't so much care what the actual data being added is,
+  // so we have some silly sample data so the user can just repeated click the add button and see things happen:
+  const [placeholder, setPlaceholder] = useState(sampleAdditions[0]);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "end" }}>
-      <input
-        value={state}
-        placeholder={placeholder}
-        onChange={(e) => setState(e.target.value)}
-        style={{ margin: "0.25rem", border: "2px solid" }}
-      />
+    <div className="flex flex-col items-end gap-2">
+      <input value={state} placeholder={placeholder} onChange={(e) => setState(e.target.value)} className="input" />
       <button
         onClick={() => {
           void mutation.mutate(state === "" ? placeholder : state);
           setPlaceholder(nextSample());
           setState("");
         }}
-        style={{ backgroundColor: "ButtonHighlight", padding: ".0.125rem", cursor: "pointer" }}
+        // className="p-1.5 cursor-pointer bg-[#ecf4fb] text-[#0075bf] hover:text-[#cfe4f4] hover:bg-[#006aae]"
+        className="btn btn-soft btn-primary"
       >
-        Click here to try it out
+        Click here to try it out!
       </button>
     </div>
   );
@@ -82,11 +44,19 @@ export const DisplayItems: FC = () => {
     queryFn: fetchServerState,
   });
   return items.isSuccess ? (
-    <ul style={{ listStyle: "inside", textAlign: "left" }}>
-      {items.data.map((x) => (
-        <li key={x.id}>{x.label}</li>
-      ))}
-    </ul>
+    <div className="text-left">
+      <ul className="list-disc list-inside">
+        {items.data.map((x) => (
+          <li key={x.id}>{x.label}</li>
+        ))}
+      </ul>
+      <hr />
+      <pre className="overflow-scroll">
+        {"[\n  "}
+        {items.data.map((x) => JSON.stringify(x)).join(",\n  ")}
+        {",\n]"}
+      </pre>
+    </div>
   ) : (
     "... loading"
   );
@@ -110,8 +80,24 @@ export function optimisticUpdateLogic(engine: OptimisticUpdateEngineReactQuery) 
         {
           label: mutationState.input,
           id: mutationState.status === "success" ? mutationState.data : mutationState.context,
+          optimistic: true,
         },
       ];
     },
   });
+}
+
+const sampleAdditions = [
+  "Add Features",
+  "Introduce accidental bugs",
+  "Headscratching",
+  "Take a break",
+  "Shower epiphany",
+  "Bugfix",
+  "More customer requests",
+  "Repeat",
+];
+let inc = 1;
+function nextSample() {
+  return sampleAdditions[inc++ % sampleAdditions.length];
 }

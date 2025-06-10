@@ -1,3 +1,29 @@
-import "@xyflow/react/dist/style.css";
+import { Cards } from "nextra/components";
+import { GrDeploy, GrCode } from "react-icons/gr";
+import { FaScrewdriverWrench } from "react-icons/fa6";
+
+<div className="text-center"># **Optimistic Update Engine**</div>
+
+### A library for making your front end respond to user events faster.
+
+You can see it in action below. This app has a TODO list and a button to add more items. The server is slow, but the optimistic engine system makes the data appear immediately without having to wait.
 
 <FrontpageDemo />
+
+### Learn more:
+
+<Cards>
+  <Cards.Card icon={<GrDeploy />} title="Getting Started" href="/docs/getting-started" />
+  <Cards.Card icon={<GrCode />} title="Examples" href="/examples" />
+  <Cards.Card
+    icon={<FaScrewdriverWrench />}
+    title={
+      <>
+        How does it work
+        <br />
+        (under the hood)
+      </>
+    }
+    href="/docs/advanced/details"
+  />
+</Cards>

@@ -1,0 +1,13 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: all;
+}
+
+@layer components {
+  @import "@xyflow/react/dist/style.css";
+  @import "nextra-theme-docs/style.css";
+
+  .nextra-card {
+    @apply justify-center;
+  }
+}

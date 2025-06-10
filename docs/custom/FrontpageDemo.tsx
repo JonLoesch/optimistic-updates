@@ -1,14 +1,23 @@
 "use client";
 
 import { FC, PropsWithChildren, useCallback, useState } from "react";
-import { Background, Controls, Handle, MarkerType, Position, ReactFlow, ReactFlowProps } from "@xyflow/react";
+import {
+  Background,
+  Controls,
+  Handle,
+  MarkerType,
+  NodeProps,
+  Position,
+  ReactFlow,
+  ReactFlowProps,
+} from "@xyflow/react";
 import { Bleed } from "nextra/components";
 import { produce } from "immer";
-import { atom, createStore, Provider, useAtom, useAtomValue } from "jotai";
+import { atom, createStore, Provider, useAtom, useAtomValue, PrimitiveAtom } from "jotai";
 import { AddItem, DisplayItems, optimisticUpdateLogic } from "./FrontpageDemoComponents";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { optimisticEngineReactQuery } from "@optimistic-updates/react-query";
-import { PrimitiveAtom } from "jotai/ts3.8/vanilla";
+import { useColorMode } from "./DaisyUiPatchTheme";
 
 const store = createStore();
 type Item = {
@@ -20,9 +29,9 @@ const settings = {
   artificialServerDelay: atom(true),
 };
 const serverState = atom<Item[]>([
-  { id: 0, label: "Bananas" },
-  { id: 1, label: "Apples" },
-  { id: 2, label: "Spinach" },
+  { id: 0, label: "Write amazing code" },
+  { id: 1, label: "???" },
+  { id: 2, label: "Profit!" },
 ]);
 const artificialServerDelayMS = atom((get) => (get(settings.artificialServerDelay) ? 1500 : 20));
 export function optimisticUpdatesEnabled() {
@@ -97,12 +106,13 @@ export const FrontpageDemo: FC = () => {
     <QueryClientProvider client={queryClient}>
       <Provider store={store}>
         <Bleed full>
-          <div
-            style={{
-              height: "calc(100vh - var(--nextra-navbar-height) - 11rem);)",
-            }}
-          >
-            <Graph />
+          <div className="card w-full">
+            <div className="bg-base-100 card-body">
+              <div className="card-title self-center">Live Demo</div>
+              <div className="aspect-[3/2]">
+                <Graph />
+              </div>
+            </div>
           </div>
         </Bleed>
       </Provider>
@@ -110,58 +120,68 @@ export const FrontpageDemo: FC = () => {
   );
 };
 
-function useAnimationValues(anim: ReturnType<typeof edgeAnimation>) {
+function useAnimationValue(anim: ReturnType<typeof edgeAnimation>) {
   return { label: useAtomValue(anim.label), animated: useAtomValue(anim.isActive) };
 }
-const nodeTypes: ReactFlowProps["nodeTypes"] = {
-  mutation: (props) => {
-    return (
-      <div className="react-flow__node-default" style={{ minWidth: "13rem" }}>
-        <Handle type="target" position={Position.Top} style={{ left: "30%" }} />
-        <Handle type="source" position={Position.Top} style={{ left: "70%" }} />
-        <Handle type="source" position={Position.Left} id="optimistic" />
-        <div>{props.data.label}</div>
+function useAnimationValues<T extends string>(anims: Record<T, ReturnType<typeof edgeAnimation>>) {
+  return Object.fromEntries(
+    Object.entries<ReturnType<typeof edgeAnimation>>(anims).map(([k, v]) => [k, useAnimationValue(v)])
+  ) as Record<T, ReturnType<typeof useAnimationValue>>;
+}
+const ReactFlowNode: FC<PropsWithChildren<{ component?: FC; data: { label: string }; className?: string }>> = (
+  props
+) => {
+  return (
+    <div className={`card bg-base-200 w-full ${props.className}`}>
+      {props.children}
+      <div className="card-body">
+        <div className="card-title self-center">{props.data.label}</div>
 
-        <div style={{ border: "2px solid", padding: ".25rem" }}>
-          <AddItem />
-        </div>
+        {props.component && <props.component />}
       </div>
-    );
-  },
+    </div>
+  );
+};
+
+const nodeTypes: ReactFlowProps["nodeTypes"] = {
+  mutation: (props) => (
+    <ReactFlowNode {...props} component={AddItem}>
+      <Handle type="target" position={Position.Top} className="left-[30%]" />
+      <Handle type="source" position={Position.Top} className="left-[70%]" />
+      <Handle type="source" position={Position.Left} id="optimistic" />
+    </ReactFlowNode>
+  ),
   query: (props) => {
     return (
-      <div className="react-flow__node-default" style={{ minWidth: "14rem" }}>
-        <Handle type="target" position={Position.Top} style={{ left: "30%" }} />
-        <Handle type="source" position={Position.Top} style={{ left: "70%" }} />
+      <ReactFlowNode {...props} component={DisplayItems}>
+        <Handle type="target" position={Position.Top} className="left-[30%]" />
+        <Handle type="source" position={Position.Top} className="left-[70%]" />
         <Handle type="target" position={Position.Right} id="optimistic" />
-        <div>{props.data.label}</div>
-        <div style={{ border: "2px solid", padding: ".25rem" }}>
-          <DisplayItems />
-        </div>
-      </div>
+      </ReactFlowNode>
     );
   },
   server: (props) => {
     return (
-      <div className="react-flow__node-default">
-        {props.data.label}
-        <Handle type="source" position={Position.Bottom} style={{ left: "20%" }} id="queryOut" />
-        <Handle type="target" position={Position.Bottom} style={{ left: "40%" }} id="queryIn" />
-        <Handle type="source" position={Position.Bottom} style={{ left: "60%" }} id="mutationOut" />
-        <Handle type="target" position={Position.Bottom} style={{ left: "80%" }} id="mutationIn" />
-      </div>
+      <ReactFlowNode {...props}>
+        <Handle type="source" position={Position.Bottom} className="left-[20%]" id="queryOut" />
+        <Handle type="target" position={Position.Bottom} className="left-[40%]" id="queryIn" />
+        <Handle type="source" position={Position.Bottom} className="left-[60%]" id="mutationOut" />
+        <Handle type="target" position={Position.Bottom} className="left-[80%]" id="mutationIn" />
+      </ReactFlowNode>
     );
   },
   settings: (props) => {
     return (
-      <div className="react-flow__node-default" style={{ minWidth: "16rem" }}>
-        {props.data.label}
-
-        <div style={{ border: "2px solid", padding: ".25rem", textAlign: "left" }}>
-          <Checkbox checkbox={settings.artificialServerDelay}>Enable artificial server delay</Checkbox>
-          <Checkbox checkbox={settings.optimisticUpdateEngine}>Enable optimistic update engine</Checkbox>
-        </div>
-      </div>
+      <ReactFlowNode
+        {...props}
+        className="card-xs"
+        component={() => (
+          <div className="">
+            <Checkbox checkbox={settings.artificialServerDelay}>Enable artificial server delay</Checkbox>
+            <Checkbox checkbox={settings.optimisticUpdateEngine}>Enable optimistic update engine</Checkbox>
+          </div>
+        )}
+      />
     );
   },
 };
@@ -176,30 +196,36 @@ const Checkbox: FC<PropsWithChildren<{ checkbox: PrimitiveAtom<boolean> }>> = (p
 };
 
 const Graph: FC = () => {
+  const anim = useAnimationValues<keyof typeof animationStates>(animationStates);
+  const colorMode = useColorMode();
   return (
     <ReactFlow
       nodes={[
         {
           id: "q",
           type: "query",
-          position: { x: -150, y: 100 },
+          position: { x: -200, y: 100 },
+          width: 250,
           data: { label: "TODO list" },
         },
         {
           id: "m",
-          position: { x: 150, y: 100 },
           type: "mutation",
+          position: { x: 150, y: 100 },
+          width: 250,
           data: { label: "Add TODO" },
         },
         {
           id: "s",
           type: "server",
           position: { x: 0, y: -50 },
+          width: 200,
           data: { label: "Server" },
         },
         {
           id: "settings",
           type: "settings",
+          width: 250,
           position: { x: 150, y: 300 },
           data: { label: "Settings" },
         },
@@ -210,7 +236,7 @@ const Graph: FC = () => {
           source: "m",
           target: "s",
           targetHandle: "mutationIn",
-          ...useAnimationValues(animationStates.mutationToServer),
+          ...anim.mutationToServer,
           markerEnd: { type: MarkerType.Arrow, strokeWidth: 2 },
         },
         {
@@ -218,14 +244,14 @@ const Graph: FC = () => {
           source: "s",
           target: "m",
           sourceHandle: "mutationOut",
-          ...useAnimationValues(animationStates.serverToMutation),
+          ...anim.serverToMutation,
           markerEnd: { type: MarkerType.Arrow, strokeWidth: 2 },
         },
         {
           id: "q->s",
           source: "q",
           target: "s",
-          ...useAnimationValues(animationStates.queryToServer),
+          ...anim.queryToServer,
           targetHandle: "queryIn",
 
           markerEnd: { type: MarkerType.Arrow, strokeWidth: 2 },
@@ -234,22 +260,28 @@ const Graph: FC = () => {
           id: "s->q",
           source: "s",
           target: "q",
-          ...useAnimationValues(animationStates.serverToQuery),
+          ...anim.serverToQuery,
           sourceHandle: "queryOut",
           markerEnd: { type: MarkerType.Arrow, strokeWidth: 2 },
         },
-        {
-          id: "m->q",
-          source: "m",
-          target: "q",
-          sourceHandle: "optimistic",
-          targetHandle: "optimistic",
-          ...useAnimationValues(animationStates.mutationToQuery),
-          markerEnd: { type: MarkerType.Arrow, strokeWidth: 2 },
-        },
+        ...(useAtomValue(settings.optimisticUpdateEngine)
+          ? [
+              {
+                id: "m->q",
+                source: "m",
+                target: "q",
+                sourceHandle: "optimistic",
+                targetHandle: "optimistic",
+                ...anim.mutationToQuery,
+                markerEnd: { type: MarkerType.Arrow, strokeWidth: 2 },
+              },
+            ]
+          : []),
       ]}
       fitView
+      preventScrolling={false}
       nodeTypes={nodeTypes}
+      colorMode={colorMode}
     >
       <Background />
       <Controls />
