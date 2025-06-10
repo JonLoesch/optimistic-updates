@@ -1,5 +1,5 @@
 import { Cards } from "nextra/components";
-import { GrDeploy, GrCode } from "react-icons/gr";
+import { GrDeploy, GrCode, GrDocumentText } from "react-icons/gr";
 import { FaScrewdriverWrench } from "react-icons/fa6";
 
 <div className="text-center"># **Optimistic Update Engine**</div>
@@ -13,17 +13,18 @@ You can see it in action below. This app has a TODO list and a button to add mor
 ### Learn more:
 
 <Cards>
-  <Cards.Card icon={<GrDeploy />} title="Getting Started" href="/docs/getting-started" />
-  <Cards.Card icon={<GrCode />} title="Examples" href="/examples" />
-  <Cards.Card
-    icon={<FaScrewdriverWrench />}
-    title={
-      <>
-        How does it work
-        <br />
-        (under the hood)
-      </>
-    }
-    href="/docs/advanced/details"
-  />
+    <Cards.Card icon={<GrDeploy />} title="Getting Started" href="/docs/getting-started" />
+    <Cards.Card icon={<GrCode />} title="Examples" href="/examples" />
+    <Cards.Card icon={<GrDocumentText />} title="Documentation" href="/docs/introduction" />
+    <Cards.Card
+        icon={<FaScrewdriverWrench />}
+        title={
+        <>
+            How does it work
+            <br />
+            (under the hood)
+        </>
+        }
+        href="/docs/advanced/details"
+    />
 </Cards>

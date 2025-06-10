@@ -13,5 +13,3 @@ export const NpmInstall: FC<{ packageName: string }> = (props) => {
     </>
   );
 };
-
-// TODO use something like: https://tanstack.com/query/latest/docs/framework/react/installation
